@@ -6,6 +6,8 @@ import {
   Scan, CheckCircle, Plus, Globe, Image, Trash2, Loader2, Square
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { db } from "@/lib/firebase";
+import { doc, setDoc, collection } from "firebase/firestore";
 
 const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "AIzaSyADeLSm5n2zxbGooVoS6zggXITfSjbBsfo";
 
@@ -189,7 +191,7 @@ const RegisterLandPage = () => {
     }
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!ownerName.trim()) { toast({ title: "Owner Name Required", variant: "destructive" }); return; }
     if (mobile.length < 10) { toast({ title: "Valid Mobile Number Required", variant: "destructive" }); return; }
     if (!state.trim()) { toast({ title: "State Required", variant: "destructive" }); return; }
@@ -197,7 +199,7 @@ const RegisterLandPage = () => {
     if (points.length < 3) { toast({ title: "Mark at least 3 boundary points on the map", variant: "destructive" }); return; }
 
     setSubmitting(true);
-    setTimeout(() => {
+    try {
       // Generate unique Land ID
       const landId = `SL-${state.slice(0, 2).toUpperCase()}-${Date.now().toString(36).toUpperCase()}`;
       const twin = {
@@ -211,15 +213,24 @@ const RegisterLandPage = () => {
         createdAt: new Date().toISOString(),
         polygon: points,
       };
-      // Store in localStorage
+
+      // Save to Firebase Firestore
+      await setDoc(doc(db, "digitalTwins", landId), twin);
+
+      // Also keep in localStorage for current session
       const existing = JSON.parse(localStorage.getItem("secureland_twins") || "[]");
       existing.push(twin);
       localStorage.setItem("secureland_twins", JSON.stringify(existing));
       localStorage.setItem("secureland_latest_twin", JSON.stringify(twin));
 
-      toast({ title: "Land Registered!", description: `Land ID: ${landId}` });
+      toast({ title: "Land Registered!", description: `Land ID: ${landId} — saved to database.` });
       navigate("/digital-twin");
-    }, 800);
+    } catch (error: any) {
+      console.error("Land registration error:", error);
+      toast({ title: "Registration Failed", description: error.message || "Failed to save. Try again.", variant: "destructive" });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (

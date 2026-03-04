@@ -3,6 +3,8 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Phone, ArrowRight, Shield, UserPlus, Loader2, Lock, Eye, EyeOff, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { db } from "@/lib/firebase";
+import { doc, getDoc } from "firebase/firestore";
 
 const LoginPage = () => {
   const [phone, setPhone] = useState("");
@@ -15,7 +17,7 @@ const LoginPage = () => {
   const module = searchParams.get("module") || "protection";
   const { toast } = useToast();
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     setError("");
 
     if (phone.length < 10) {
@@ -28,31 +30,37 @@ const LoginPage = () => {
     }
 
     setLoading(true);
-    setTimeout(() => {
-      // Check credentials against stored users
-      const users = JSON.parse(localStorage.getItem("secureland_users") || "[]");
-      const matchedUser = users.find((u: any) => u.phone === phone && u.password === password);
+    try {
+      // Check credentials against Firestore
+      const userRef = doc(db, "users", phone);
+      const userSnap = await getDoc(userRef);
 
-      if (!matchedUser) {
-        // Check if phone exists but password is wrong
-        const phoneExists = users.find((u: any) => u.phone === phone);
-        if (phoneExists) {
-          setError("Invalid password. Please try again.");
-          toast({ title: "Login Failed", description: "Incorrect password for this mobile number.", variant: "destructive" });
-        } else {
-          setError("This mobile number is not registered. Please register first.");
-          toast({ title: "Not Registered", description: "No account found with this mobile number. Please register.", variant: "destructive" });
-        }
+      if (!userSnap.exists()) {
+        setError("This mobile number is not registered. Please register first.");
+        toast({ title: "Not Registered", description: "No account found with this mobile number.", variant: "destructive" });
         setLoading(false);
         return;
       }
 
-      // Login successful
-      localStorage.setItem("secureland_current_user", JSON.stringify({ name: matchedUser.name, phone: matchedUser.phone }));
-      toast({ title: "Login Successful!", description: `Welcome back, ${matchedUser.name}!` });
+      const userData = userSnap.data();
+      if (userData.password !== password) {
+        setError("Invalid password. Please try again.");
+        toast({ title: "Login Failed", description: "Incorrect password for this mobile number.", variant: "destructive" });
+        setLoading(false);
+        return;
+      }
+
+      // Login successful — save session
+      localStorage.setItem("secureland_current_user", JSON.stringify({ name: userData.name, phone: userData.phone }));
+      toast({ title: "Login Successful!", description: `Welcome back, ${userData.name}!` });
       navigate(module === "marketplace" ? "/marketplace/dashboard" : "/protection/dashboard");
+    } catch (error: any) {
+      console.error("Login error:", error);
+      setError("Something went wrong. Please try again.");
+      toast({ title: "Error", description: error.message || "Connection failed.", variant: "destructive" });
+    } finally {
       setLoading(false);
-    }, 800);
+    }
   };
 
   return (

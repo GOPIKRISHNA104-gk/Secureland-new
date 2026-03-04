@@ -3,6 +3,8 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Phone, ArrowRight, Shield, ChevronLeft, User, Lock, Eye, EyeOff, CheckCircle, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { db } from "@/lib/firebase";
+import { doc, setDoc, getDoc } from "firebase/firestore";
 
 const RegisterPage = () => {
     const [name, setName] = useState("");
@@ -19,32 +21,42 @@ const RegisterPage = () => {
 
     const passwordsMatch = password.length > 0 && confirmPassword.length > 0 && password === confirmPassword;
 
-    const handleRegister = () => {
+    const handleRegister = async () => {
         if (!name.trim()) { toast({ title: "Name Required", description: "Please enter your full name.", variant: "destructive" }); return; }
         if (phone.length < 10) { toast({ title: "Invalid Number", description: "Please enter a valid 10-digit mobile number.", variant: "destructive" }); return; }
         if (password.length < 6) { toast({ title: "Weak Password", description: "Password must be at least 6 characters.", variant: "destructive" }); return; }
         if (!passwordsMatch) { toast({ title: "Password Mismatch", description: "Passwords do not match.", variant: "destructive" }); return; }
 
-        // Check if phone already registered
-        const existingUsers = JSON.parse(localStorage.getItem("secureland_users") || "[]");
-        const alreadyExists = existingUsers.find((u: any) => u.phone === phone);
-        if (alreadyExists) {
-            toast({ title: "Already Registered", description: "This mobile number is already registered. Please login.", variant: "destructive" });
-            return;
-        }
-
         setLoading(true);
-        setTimeout(() => {
-            // Save user credentials to localStorage
-            const newUser = { name, phone, password };
-            existingUsers.push(newUser);
-            localStorage.setItem("secureland_users", JSON.stringify(existingUsers));
+        try {
+            // Check if phone already registered in Firestore
+            const userRef = doc(db, "users", phone);
+            const userSnap = await getDoc(userRef);
+            if (userSnap.exists()) {
+                toast({ title: "Already Registered", description: "This mobile number is already registered. Please login.", variant: "destructive" });
+                setLoading(false);
+                return;
+            }
+
+            // Save user to Firestore
+            await setDoc(userRef, {
+                name,
+                phone,
+                password,
+                createdAt: new Date().toISOString(),
+            });
+
+            // Also keep in localStorage for session
             localStorage.setItem("secureland_current_user", JSON.stringify({ name, phone }));
 
-            toast({ title: "Registration Successful!", description: "Welcome to SecureLand. Let's register your land." });
+            toast({ title: "Registration Successful!", description: "Welcome to SecureLand. Your data is saved securely." });
             navigate("/protection/register-land");
+        } catch (error: any) {
+            console.error("Registration error:", error);
+            toast({ title: "Registration Failed", description: error.message || "Something went wrong. Please try again.", variant: "destructive" });
+        } finally {
             setLoading(false);
-        }, 800);
+        }
     };
 
     return (
