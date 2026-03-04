@@ -1,67 +1,113 @@
 import { motion } from "framer-motion";
-import { Satellite } from "lucide-react";
+import { Satellite, Focus, Crosshair, Map, Activity } from "lucide-react";
 import AlertCard from "@/components/AlertCard";
+import { cn } from "@/lib/utils";
 
 const SatelliteMonitoringPage = () => {
   return (
-    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="max-w-6xl space-y-6">
-      <div className="hero-gradient rounded-2xl p-8 text-primary-foreground relative overflow-hidden">
-        <div className="absolute inset-0 opacity-20" style={{
-          backgroundImage: `radial-gradient(circle at 80% 50%, hsla(190,100%,50%,0.3) 0%, transparent 50%)`
-        }} />
-        <div className="relative z-10">
-          <h1 className="text-2xl font-bold mb-1">Satellite Monitoring</h1>
-          <p className="text-primary-foreground/60 text-sm">Real-time satellite surveillance of your registered lands</p>
+    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="h-[calc(100vh-8rem)] flex flex-col space-y-4 max-w-[1400px] mx-auto">
+      {/* Header Panel */}
+      <motion.div className="flex flex-col md:flex-row md:items-center justify-between gap-4 shrink-0">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground mb-1">Live Land Monitoring</h1>
+          <p className="text-muted-foreground text-sm">Real-time satellite surveillance and AI encroachment detection.</p>
         </div>
-      </div>
+        <div className="flex items-center gap-2 bg-destructive/10 dark:bg-destructive/20 backdrop-blur-md rounded-full px-4 py-2 border border-destructive/20 shadow-[0_0_15px_rgba(239,68,68,0.3)]">
+          <Activity className="w-4 h-4 text-destructive animate-pulse" />
+          <span className="text-xs font-semibold text-destructive">2 Active Alerts Detected</span>
+        </div>
+      </motion.div>
 
-      <div className="glass-card rounded-2xl overflow-hidden">
-        <div className="h-96 relative flex items-center justify-center" style={{
-          background: `linear-gradient(135deg, hsl(145 30% 85%), hsl(200 30% 80%), hsl(145 30% 75%))`
-        }}>
-          <div className="absolute inset-0 opacity-10" style={{
-            backgroundImage: `repeating-linear-gradient(0deg, transparent, transparent 40px, hsl(209 82% 30% / 0.2) 40px, hsl(209 82% 30% / 0.2) 41px),
-              repeating-linear-gradient(90deg, transparent, transparent 40px, hsl(209 82% 30% / 0.2) 40px, hsl(209 82% 30% / 0.2) 41px)`
-          }} />
+      {/* Main Map Interface */}
+      <div className="flex-1 flex flex-col lg:flex-row gap-6 min-h-0">
+        {/* Map Container */}
+        <div className="flex-1 glass-card rounded-[24px] overflow-hidden relative border border-border/50 shadow-2xl flex flex-col group">
 
-          <div className="text-center z-10 bg-card/80 backdrop-blur-sm rounded-2xl px-8 py-6 border border-border">
-            <Satellite className="w-12 h-12 text-primary mx-auto mb-3" />
-            <p className="text-foreground font-bold">Satellite Map View</p>
-            <p className="text-sm text-muted-foreground mt-1">8 active monitoring zones</p>
+          <div className="absolute top-4 left-4 z-20 flex gap-2">
+            <button className="bg-background/80 backdrop-blur-md rounded-xl p-3 border border-border/50 hover:bg-secondary transition-colors text-foreground shadow-lg">
+              <Map className="w-5 h-5" />
+            </button>
+            <button className="bg-background/80 backdrop-blur-md rounded-xl p-3 border border-border/50 hover:bg-secondary transition-colors text-foreground shadow-lg">
+              <Focus className="w-5 h-5" />
+            </button>
           </div>
 
-          {/* Mock markers */}
-          {[
-            { top: "30%", left: "25%", color: "bg-accent" },
-            { top: "45%", left: "60%", color: "bg-warning" },
-            { top: "65%", left: "40%", color: "bg-primary" },
-          ].map((m, i) => (
-            <div key={i} className="absolute" style={{ top: m.top, left: m.left }}>
-              <div className={`w-4 h-4 rounded-full ${m.color} animate-pulse shadow-lg`} />
+          <div className="absolute top-4 right-4 z-20">
+            <div className="bg-background/90 backdrop-blur-xl rounded-xl p-3 border border-border/50 shadow-2xl flex flex-col gap-3 min-w-[160px]">
+              <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Status</div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium">Satellites Active</span>
+                <span className="text-primary font-bold">12</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium">Last Scan</span>
+                <span className="text-foreground font-mono">1m ago</span>
+              </div>
             </div>
-          ))}
+          </div>
+
+          {/* Map Layer */}
+          <div className="relative w-full h-full bg-[#0a0a0a] overflow-hidden flex-1 cursor-crosshair">
+            {/* Satellite Image Background Mock */}
+            <div
+              className="absolute inset-0 bg-cover bg-center brightness-75 contrast-125 saturate-50 group-hover:scale-105 transition-transform duration-[10s] ease-out"
+              style={{ backgroundImage: "url('https://images.unsplash.com/photo-1524661135-423995f22d0b?q=80&w=2000&auto=format&fit=crop')" }}
+            />
+            {/* Grid Overlay for high-tech feel */}
+            <div className="absolute inset-0 z-0 opacity-20" style={{
+              backgroundImage: `repeating-linear-gradient(0deg, transparent, transparent 49px, rgba(255,255,255,0.3) 50px, rgba(255,255,255,0.3) 50px),
+                repeating-linear-gradient(90deg, transparent, transparent 49px, rgba(255,255,255,0.3) 50px, rgba(255,255,255,0.3) 50px)`
+            }} />
+
+            {/* SVG Boundaries */}
+            <svg className="absolute inset-0 w-full h-full z-10 pointer-events-none" viewBox="0 0 1000 800" preserveAspectRatio="none">
+              {/* Plot 1 - Safe */}
+              <polygon points="200,300 450,280 480,500 220,550" className="fill-primary/20 stroke-primary stroke-[3px]" strokeLinejoin="round" />
+              <circle cx="350" cy="410" r="4" className="fill-primary" />
+
+              {/* Plot 2 - Alert */}
+              <polygon points="600,200 850,250 800,450 620,400" className="fill-destructive/20 stroke-destructive stroke-[3px]" strokeDasharray="10 5" strokeLinejoin="round" />
+              <polygon points="580,220 630,220 620,280 570,260" className="fill-warning/40 stroke-warning stroke-2" />
+            </svg>
+
+            {/* Pulsing Markers */}
+            <div className="absolute top-[28%] left-[60%] z-20 -translate-x-1/2 -translate-y-1/2">
+              <div className="relative flex items-center justify-center">
+                <div className="w-16 h-16 bg-destructive/20 rounded-full animate-ping absolute" />
+                <div className="w-8 h-8 bg-destructive/40 rounded-full animate-ping absolute" />
+                <div className="w-4 h-4 bg-destructive rounded-full relative z-10 shadow-[0_0_15px_rgba(239,68,68,1)] border-2 border-white" />
+              </div>
+            </div>
+
+            <div className="absolute top-[28%] left-[60%] z-30 translate-x-4 -translate-y-8 bg-background/90 backdrop-blur-md rounded-lg p-2 border border-destructive/50 shadow-xl whitespace-nowrap">
+              <span className="text-xs font-bold text-destructive flex items-center gap-1.5"><Crosshair className="w-3 h-3" /> Encroachment Risk</span>
+            </div>
+
+            <div className="absolute top-[55%] left-[35%] z-20 -translate-x-1/2 -translate-y-1/2">
+              <div className="w-3 h-3 bg-primary rounded-full shadow-[0_0_15px_rgba(59,130,246,1)] border-2 border-white" />
+            </div>
+          </div>
         </div>
 
-        <div className="p-4 flex gap-4 border-t border-border bg-card">
-          {[
-            { label: "Active Zones", value: "8", color: "text-primary" },
-            { label: "Encroachments", value: "2", color: "text-destructive" },
-            { label: "Last Scan", value: "2h ago", color: "text-muted-foreground" },
-          ].map((s) => (
-            <div key={s.label} className="flex-1 text-center">
-              <p className={`text-lg font-bold ${s.color}`}>{s.value}</p>
-              <p className="text-xs text-muted-foreground">{s.label}</p>
+        {/* Side Panel alerts max width on large screens */}
+        <div className="shrink-0 lg:w-[400px] flex flex-col gap-6 overflow-y-auto pr-2 custom-scrollbar">
+          <div className="glass-card rounded-[24px] p-6 border border-border/50 shadow-xl">
+            <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+              <Activity className="w-5 h-5 text-accent" /> Alert Log
+            </h3>
+            <div className="space-y-4">
+              <AlertCard severity="critical" title="Encroachment Risk" description="Unauthorized structure detected near northern boundary of Plot #SL-1923." timestamp="Live" />
+              <AlertCard severity="warning" title="Boundary Change Detected" description="Minor foliage overgrowth detected affecting clear boundary visibility." timestamp="2 hours ago" />
+              <AlertCard severity="success" title="Scan Completed" description="Routine perimeter scan finished. No anomalies found on SL-2847." timestamp="1 day ago" />
+              <AlertCard severity="info" title="System Update" description="Satellite imagery updated to highest available resolution." timestamp="2 days ago" />
             </div>
-          ))}
-        </div>
-      </div>
+          </div>
 
-      <div className="glass-card rounded-2xl p-6">
-        <h3 className="text-sm font-semibold text-foreground mb-4">Monitoring Alerts</h3>
-        <div className="space-y-3">
-          <AlertCard severity="critical" title="Encroachment Detected" description="New construction within 5m of boundary on Plot #SL-2847" timestamp="2 hours ago" />
-          <AlertCard severity="warning" title="Unauthorized Construction" description="Structure detected on adjacent plot near Plot #SL-1923" timestamp="6 hours ago" />
-          <AlertCard severity="success" title="Boundary Verified" description="All boundaries intact for Plot #SL-3102" timestamp="1 day ago" />
+          <div className="bg-primary/5 dark:bg-primary/10 border border-primary/20 rounded-[20px] p-6 text-center">
+            <Satellite className="w-8 h-8 text-primary mx-auto mb-3 opacity-80" />
+            <h4 className="font-semibold text-primary mb-1">Continuous Monitoring</h4>
+            <p className="text-sm text-foreground/70">SecureLand AI scans your boundaries periodically using commercial satellite data for absolute peace of mind.</p>
+          </div>
         </div>
       </div>
     </motion.div>

@@ -3,12 +3,12 @@ import { Search, Filter, MapPin } from "lucide-react";
 import PropertyCard from "@/components/PropertyCard";
 
 const properties = [
-  { title: "Premium Plot - Whitefield", location: "Whitefield, Bangalore", price: "₹1.2 Cr", area: "2,400 sq.m", safetyScore: 92, waterScore: 85, type: "sale" as const },
-  { title: "Agricultural Land - Devanahalli", location: "Devanahalli, Bangalore", price: "₹45 L", area: "5,000 sq.m", safetyScore: 78, waterScore: 90, type: "investment" as const },
-  { title: "Residential Plot - Electronic City", location: "Electronic City, Bangalore", price: "₹85 L", area: "1,200 sq.m", safetyScore: 88, waterScore: 72, type: "sale" as const },
-  { title: "Commercial Land - Hebbal", location: "Hebbal, Bangalore", price: "₹2.5 Cr", area: "3,600 sq.m", safetyScore: 95, waterScore: 80, type: "sale" as const },
-  { title: "Farm Plot - Anekal", location: "Anekal, Bangalore", price: "₹30 L", area: "8,000 sq.m", safetyScore: 70, waterScore: 95, type: "rent" as const },
-  { title: "Layout Site - Sarjapur", location: "Sarjapur Road, Bangalore", price: "₹1.8 Cr", area: "2,000 sq.m", safetyScore: 90, waterScore: 68, type: "investment" as const },
+  { title: "Premium Plot - Whitefield", location: "Whitefield, Bangalore", price: "₹1.2 Cr", area: "2,400 sq.m", safetyScore: 92, waterScore: 85, type: "sale" as const, image: "https://images.unsplash.com/photo-1500382017468-9049fed747ef?q=80&w=800&auto=format&fit=crop" },
+  { title: "Agricultural Land - Devanahalli", location: "Devanahalli, Bangalore", price: "₹45 L", area: "5,000 sq.m", safetyScore: 78, waterScore: 90, type: "investment" as const, image: "https://images.unsplash.com/photo-1592982537447-6f2da2a0c4f3?q=80&w=800&auto=format&fit=crop" },
+  { title: "Residential Plot - Electronic City", location: "Electronic City, Bangalore", price: "₹85 L", area: "1,200 sq.m", safetyScore: 88, waterScore: 72, type: "sale" as const, image: "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?q=80&w=800&auto=format&fit=crop" },
+  { title: "Commercial Land - Hebbal", location: "Hebbal, Bangalore", price: "₹2.5 Cr", area: "3,600 sq.m", safetyScore: 95, waterScore: 80, type: "sale" as const, image: "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?q=80&w=800&auto=format&fit=crop" },
+  { title: "Farm Plot - Anekal", location: "Anekal, Bangalore", price: "₹30 L", area: "8,000 sq.m", safetyScore: 70, waterScore: 95, type: "rent" as const, image: "https://images.unsplash.com/photo-1580587771525-78b9dba3b914?q=80&w=800&auto=format&fit=crop" },
+  { title: "Layout Site - Sarjapur", location: "Sarjapur Road, Bangalore", price: "₹1.8 Cr", area: "2,000 sq.m", safetyScore: 90, waterScore: 68, type: "investment" as const, image: "https://images.unsplash.com/photo-1560518883-ce09059eeffa?q=80&w=800&auto=format&fit=crop" },
 ];
 
 const MarketplacePage = () => {

@@ -1,19 +1,32 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Camera, FileText, Upload, MapPin, User, Phone, Ruler, ArrowRight, Scan, CheckCircle } from "lucide-react";
+import { Camera, FileText, Upload, MapPin, User, Phone, Ruler, ArrowRight, Scan, CheckCircle, Plus, Globe, Image } from "lucide-react";
 
 const RegisterLandPage = () => {
-  const [mode, setMode] = useState<"select" | "camera" | "manual">("select");
+  const [stage, setStage] = useState<"landing" | "select" | "camera" | "manual">("landing");
   const [scanning, setScanning] = useState(false);
   const [scanned, setScanned] = useState(false);
+  const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [points, setPoints] = useState<{ x: number; y: number }[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const navigate = useNavigate();
 
-  const handleScan = () => {
-    setScanning(true);
-    setTimeout(() => {
-      setScanning(false);
-      setScanned(true);
-    }, 3500);
+  const handleCameraCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        setCapturedImage(ev.target?.result as string);
+        // Start AI processing simulation
+        setScanning(true);
+        setTimeout(() => {
+          setScanning(false);
+          setScanned(true);
+        }, 3500);
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const handleMapClick = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -23,87 +36,170 @@ const RegisterLandPage = () => {
     setPoints([...points, { x, y }]);
   };
 
+  const handleGenerateTwin = () => {
+    navigate("/digital-twin");
+  };
+
   return (
-    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="max-w-5xl space-y-6">
-      {/* Hero */}
-      <div className="hero-gradient rounded-2xl p-8 text-primary-foreground relative overflow-hidden">
-        <div className="absolute inset-0 opacity-20" style={{
-          backgroundImage: `radial-gradient(circle at 70% 50%, hsla(190,100%,50%,0.3) 0%, transparent 50%)`
-        }} />
-        <div className="relative z-10">
-          <h1 className="text-2xl font-bold mb-2">Register Your Land</h1>
-          <p className="text-primary-foreground/60 text-sm">Create a permanent Digital Land Twin for your property to activate satellite monitoring and fraud protection.</p>
-        </div>
-      </div>
+    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="max-w-[1200px] mx-auto space-y-8">
+      {/* Hidden Camera Input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        onChange={handleCameraCapture}
+        className="hidden"
+      />
 
-      {mode === "select" && (
-        <div className="grid md:grid-cols-2 gap-6">
+      {/* Step 5: Landing — Register Land Button */}
+      {stage === "landing" && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="flex flex-col items-center justify-center min-h-[60vh] text-center"
+        >
           <motion.div
-            whileHover={{ y: -4 }}
-            onClick={() => setMode("camera")}
-            className="glass-card-hover rounded-2xl p-8 cursor-pointer group"
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ delay: 0.2, type: "spring" }}
+            className="w-28 h-28 rounded-3xl bg-primary/10 flex items-center justify-center mb-8 shadow-xl shadow-primary/10 border border-primary/20 relative"
           >
-            <div className="w-14 h-14 rounded-2xl hero-gradient flex items-center justify-center mb-6">
-              <Camera className="w-7 h-7 text-primary-foreground" />
-            </div>
-            <h2 className="text-lg font-bold text-foreground mb-2">Camera Registration</h2>
-            <p className="text-sm text-muted-foreground mb-4">Scan or upload your land deed. Our AI will automatically extract details and generate your Digital Twin.</p>
-            <span className="text-sm font-semibold text-primary flex items-center gap-2 group-hover:gap-3 transition-all">
-              Select Document Scan <ArrowRight className="w-4 h-4" />
-            </span>
+            <div className="absolute -inset-4 bg-primary/10 blur-2xl rounded-full" />
+            <MapPin className="w-12 h-12 text-primary relative z-10" />
           </motion.div>
 
-          <motion.div
-            whileHover={{ y: -4 }}
-            onClick={() => setMode("manual")}
-            className="glass-card-hover rounded-2xl p-8 cursor-pointer group"
+          <h1 className="text-3xl font-bold tracking-tight text-foreground mb-3">Register Your Property</h1>
+          <p className="text-muted-foreground max-w-md mb-10">
+            Add your land to the SecureLand protection network. Create a permanent digital identity and enable satellite monitoring.
+          </p>
+
+          <motion.button
+            whileHover={{ scale: 1.03, translateY: -3 }}
+            whileTap={{ scale: 0.97 }}
+            onClick={() => setStage("select")}
+            className="flex items-center gap-3 hero-gradient-subtle px-10 py-4 rounded-2xl text-white font-bold text-lg shadow-[0_0_30px_rgba(37,99,235,0.4)] hover:shadow-[0_0_40px_rgba(37,99,235,0.6)] transition-all border border-white/10"
           >
-            <div className="w-14 h-14 rounded-2xl bg-accent flex items-center justify-center mb-6">
-              <FileText className="w-7 h-7 text-primary-foreground" />
-            </div>
-            <h2 className="text-lg font-bold text-foreground mb-2">Manual Registration</h2>
-            <p className="text-sm text-muted-foreground mb-4">Manually enter your property details and draw your land boundaries on our interactive map.</p>
-            <span className="text-sm font-semibold text-accent flex items-center gap-2 group-hover:gap-3 transition-all">
-              Select Manual Entry <ArrowRight className="w-4 h-4" />
-            </span>
-          </motion.div>
-        </div>
+            <Plus className="w-6 h-6" />
+            Register Land
+          </motion.button>
+        </motion.div>
       )}
 
-      {mode === "camera" && (
+      {/* Step 6: Camera or Manual Selection */}
+      {stage === "select" && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
-          <button onClick={() => { setMode("select"); setScanned(false); setScanning(false); }} className="text-sm text-muted-foreground hover:text-primary transition-colors font-medium">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight text-foreground mb-1">Choose Registration Method</h1>
+            <p className="text-muted-foreground text-sm">Select how you'd like to register your land document.</p>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-6">
+            <motion.div
+              whileHover={{ y: -4, scale: 1.01 }}
+              onClick={() => {
+                setStage("camera");
+                // Trigger native camera
+                fileInputRef.current?.click();
+              }}
+              className="glass-card-hover rounded-[24px] p-8 cursor-pointer group border border-border/50"
+            >
+              <div className="w-16 h-16 rounded-2xl hero-gradient flex items-center justify-center mb-6 shadow-lg shadow-primary/20 group-hover:shadow-xl group-hover:shadow-primary/30 transition-shadow">
+                <Camera className="w-8 h-8 text-primary-foreground" />
+              </div>
+              <h2 className="text-xl font-bold text-foreground mb-2">Camera Registration</h2>
+              <p className="text-sm text-muted-foreground mb-5 leading-relaxed">
+                Take a photo of your land document. Our AI will automatically extract the land details and GPS coordinates.
+              </p>
+              <span className="text-sm font-semibold text-primary flex items-center gap-2 group-hover:gap-3 transition-all">
+                Open Camera <ArrowRight className="w-4 h-4" />
+              </span>
+            </motion.div>
+
+            <motion.div
+              whileHover={{ y: -4, scale: 1.01 }}
+              onClick={() => setStage("manual")}
+              className="glass-card-hover rounded-[24px] p-8 cursor-pointer group border border-border/50"
+            >
+              <div className="w-16 h-16 rounded-2xl bg-accent flex items-center justify-center mb-6 shadow-lg shadow-accent/20 group-hover:shadow-xl group-hover:shadow-accent/30 transition-shadow">
+                <FileText className="w-8 h-8 text-primary-foreground" />
+              </div>
+              <h2 className="text-xl font-bold text-foreground mb-2">Manual Registration</h2>
+              <p className="text-sm text-muted-foreground mb-5 leading-relaxed">
+                Manually enter your property details and mark your land boundaries using interactive Google Maps.
+              </p>
+              <span className="text-sm font-semibold text-accent flex items-center gap-2 group-hover:gap-3 transition-all">
+                Enter Details <ArrowRight className="w-4 h-4" />
+              </span>
+            </motion.div>
+          </div>
+
+          <button onClick={() => setStage("landing")} className="text-sm text-muted-foreground hover:text-primary transition-colors font-medium">
+            ← Back
+          </button>
+        </motion.div>
+      )}
+
+      {/* Step 7: Camera Registration */}
+      {stage === "camera" && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight text-foreground mb-1">Camera Registration</h1>
+              <p className="text-muted-foreground text-sm">Upload or capture your land document for AI processing.</p>
+            </div>
+          </div>
+          <button onClick={() => { setStage("select"); setScanned(false); setScanning(false); setCapturedImage(null); }} className="text-sm text-muted-foreground hover:text-primary transition-colors font-medium">
             ← Back to options
           </button>
 
-          <div className="glass-card rounded-2xl p-8">
-            {!scanned ? (
-              <div className="border-2 border-dashed border-border rounded-2xl p-12 text-center relative overflow-hidden">
-                {scanning && (
-                  <div className="absolute inset-0">
-                    <div className="absolute left-0 right-0 h-1 hero-gradient-subtle scan-line rounded-full" />
-                    <div className="absolute inset-0 bg-primary/5" />
-                  </div>
-                )}
-                <Upload className="w-14 h-14 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-bold text-foreground mb-2">
-                  {scanning ? "AI Document Analysis..." : "Upload Property Document"}
-                </h3>
-                <p className="text-sm text-muted-foreground mb-6">
-                  {scanning ? "Extracting coordinates, owner info, and survey details." : "Click to upload or take a photo of your land deed. Supports JPG, PNG, PDF."}
+          <div className="glass-card rounded-[24px] p-8">
+            {!capturedImage && !scanned ? (
+              <div
+                onClick={() => fileInputRef.current?.click()}
+                className="border-2 border-dashed border-border rounded-2xl p-16 text-center cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-all"
+              >
+                <div className="w-20 h-20 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-6">
+                  <Upload className="w-8 h-8 text-primary" />
+                </div>
+                <h3 className="text-lg font-bold text-foreground mb-2">Upload or Capture Document</h3>
+                <p className="text-sm text-muted-foreground mb-4 max-w-md mx-auto">
+                  Click to open your camera or select a photo of your land deed. Supports JPG, PNG, PDF.
                 </p>
-                {!scanning && (
-                  <button onClick={handleScan} className="h-11 px-8 rounded-xl hero-gradient-subtle text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity shadow-lg shadow-primary/20">
-                    Upload & Scan
-                  </button>
-                )}
+                <div className="flex items-center justify-center gap-4">
+                  <span className="px-4 py-2 rounded-lg bg-primary/10 text-primary text-sm font-semibold flex items-center gap-2">
+                    <Camera className="w-4 h-4" /> Take Photo
+                  </span>
+                  <span className="px-4 py-2 rounded-lg bg-secondary text-foreground text-sm font-semibold flex items-center gap-2">
+                    <Image className="w-4 h-4" /> Gallery
+                  </span>
+                </div>
               </div>
-            ) : (
+            ) : scanning ? (
+              <div className="relative overflow-hidden rounded-2xl">
+                {capturedImage && (
+                  <img src={capturedImage} alt="Captured document" className="w-full h-64 object-cover rounded-2xl opacity-50" />
+                )}
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/60 backdrop-blur-sm rounded-2xl">
+                  <motion.div
+                    animate={{ y: ["0%", "100%", "0%"] }}
+                    transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                    className="w-full h-1 bg-gradient-to-r from-transparent via-primary to-transparent absolute top-0"
+                  />
+                  <Scan className="w-12 h-12 text-primary mb-4 animate-pulse" />
+                  <h3 className="text-lg font-bold text-foreground">AI Document Analysis...</h3>
+                  <p className="text-sm text-muted-foreground">Extracting coordinates, owner info, and survey details.</p>
+                </div>
+              </div>
+            ) : scanned ? (
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
                 <div className="flex items-center gap-2 mb-6">
                   <CheckCircle className="w-5 h-5 text-accent" />
                   <h3 className="text-lg font-bold text-foreground">Data Extracted Successfully</h3>
                 </div>
+                {capturedImage && (
+                  <img src={capturedImage} alt="Captured document" className="w-full h-40 object-cover rounded-xl mb-6 border border-border" />
+                )}
                 <div className="grid md:grid-cols-2 gap-4 mb-6">
                   {[
                     { label: "Owner Name", value: "John Doe" },
@@ -111,69 +207,91 @@ const RegisterLandPage = () => {
                     { label: "Land Area", value: "1.50 Acres" },
                     { label: "Location", value: "Coimbatore North" },
                   ].map((d) => (
-                    <div key={d.label} className="bg-secondary rounded-xl p-4">
+                    <div key={d.label} className="bg-secondary/50 rounded-xl p-4 border border-border/50">
                       <span className="text-xs text-muted-foreground font-medium">{d.label}</span>
                       <p className="text-sm font-bold text-foreground mt-1">{d.value}</p>
                     </div>
                   ))}
                 </div>
-                <div className="bg-secondary rounded-xl p-4 mb-6">
+                <div className="bg-secondary/50 rounded-xl p-4 mb-6 border border-border/50">
                   <span className="text-xs text-muted-foreground font-medium">Extracted GPS Coordinates</span>
-                  <p className="text-sm font-mono font-medium text-foreground mt-1">11.0168° N, 76.9558° E | 11.0172° N, ...</p>
+                  <p className="text-sm font-mono font-medium text-foreground mt-1">11.0168° N, 76.9558° E | 11.0172° N, 76.9562° E</p>
                 </div>
-                <button className="h-11 px-8 rounded-xl hero-gradient-subtle text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity shadow-lg shadow-primary/20">
-                  Confirm & Generate Digital Twin
+                <button
+                  onClick={handleGenerateTwin}
+                  className="h-12 px-8 rounded-xl hero-gradient-subtle text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity shadow-lg shadow-primary/20"
+                >
+                  Confirm & Generate Digital Twin <ArrowRight className="w-4 h-4 inline ml-2" />
                 </button>
               </motion.div>
-            )}
+            ) : null}
           </div>
         </motion.div>
       )}
 
-      {mode === "manual" && (
+      {/* Step 8: Manual Registration */}
+      {stage === "manual" && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
-          <button onClick={() => { setMode("select"); setPoints([]); }} className="text-sm text-muted-foreground hover:text-primary transition-colors font-medium">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight text-foreground mb-1">Manual Registration</h1>
+            <p className="text-muted-foreground text-sm">Enter land details and mark boundaries on the map.</p>
+          </div>
+          <button onClick={() => { setStage("select"); setPoints([]); }} className="text-sm text-muted-foreground hover:text-primary transition-colors font-medium">
             ← Back to options
           </button>
 
           <div className="grid lg:grid-cols-2 gap-6">
-            <div className="glass-card rounded-2xl p-6">
+            <div className="glass-card rounded-[24px] p-8">
               <h3 className="text-lg font-bold text-foreground mb-2">Enter Land Details</h3>
               <p className="text-sm text-muted-foreground mb-6">Provide accurate information to generate the digital twin.</p>
               <div className="space-y-4">
                 {[
-                  { label: "Owner Name", icon: User, placeholder: "Enter full name" },
-                  { label: "Mobile Number", icon: Phone, placeholder: "+91 9876543210" },
-                  { label: "State", icon: MapPin, placeholder: "Select state" },
-                  { label: "Land Location", icon: MapPin, placeholder: "Enter location" },
-                  { label: "Land Area (sq.m)", icon: Ruler, placeholder: "Enter area" },
+                  { label: "Owner Name", icon: User, placeholder: "Enter full name", type: "text" },
+                  { label: "Mobile Number", icon: Phone, placeholder: "+91 9876543210", type: "tel" },
+                  { label: "State", icon: Globe, placeholder: "Select state", type: "text" },
+                  { label: "Location", icon: MapPin, placeholder: "Enter location / village / city", type: "text" },
                 ].map((field) => (
                   <div key={field.label}>
                     <label className="text-xs font-semibold text-foreground mb-1.5 block">{field.label}</label>
                     <div className="relative">
                       <field.icon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                       <input
-                        type="text"
+                        type={field.type}
                         placeholder={field.placeholder}
                         className="w-full h-11 pl-10 pr-4 rounded-xl bg-secondary border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                       />
                     </div>
                   </div>
                 ))}
+
+                {/* Coordinates Display */}
+                <div>
+                  <label className="text-xs font-semibold text-foreground mb-1.5 block">Coordinates (from Map)</label>
+                  <div className="h-11 px-4 rounded-xl bg-secondary border border-border flex items-center text-sm text-muted-foreground font-mono">
+                    {points.length > 0
+                      ? `${points.length} point(s) marked`
+                      : "Click on the map to mark boundaries →"
+                    }
+                  </div>
+                </div>
               </div>
-              <button className="mt-6 w-full h-11 rounded-xl hero-gradient-subtle text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity shadow-lg shadow-primary/20">
-                Submit & Generate Digital Twin
+              <button
+                onClick={handleGenerateTwin}
+                disabled={points.length < 3}
+                className="mt-6 w-full h-12 rounded-xl hero-gradient-subtle text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity shadow-lg shadow-primary/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                Submit & Generate Digital Twin <ArrowRight className="w-4 h-4" />
               </button>
               {points.length < 3 && (
                 <p className="text-xs text-muted-foreground mt-3 text-center">Please draw at least 3 points on the map to define your boundary.</p>
               )}
             </div>
 
-            <div className="glass-card rounded-2xl overflow-hidden">
-              <div className="px-4 py-3 border-b border-border flex items-center justify-between">
+            <div className="glass-card rounded-[24px] overflow-hidden">
+              <div className="px-5 py-3 border-b border-border flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Scan className="w-4 h-4 text-primary" />
-                  <span className="text-sm font-semibold text-foreground">Mark Land Boundaries</span>
+                  <span className="text-sm font-semibold text-foreground">Mark Land Boundaries (Google Maps)</span>
                 </div>
                 <button onClick={() => setPoints([])} className="text-xs text-muted-foreground hover:text-destructive transition-colors font-medium">
                   Clear Map
@@ -181,7 +299,7 @@ const RegisterLandPage = () => {
               </div>
               <div
                 onClick={handleMapClick}
-                className="relative h-[400px] cursor-crosshair overflow-hidden"
+                className="relative h-[450px] cursor-crosshair overflow-hidden"
                 style={{
                   background: `linear-gradient(135deg, hsl(145 30% 85%), hsl(200 30% 80%), hsl(145 30% 75%))`,
                 }}
@@ -204,7 +322,7 @@ const RegisterLandPage = () => {
                   )}
                   {points.length > 0 && points.map((p, i) => {
                     if (i === 0) return null;
-                    return <line key={i} x1={points[i-1].x} y1={points[i-1].y} x2={p.x} y2={p.y} stroke="hsl(190, 100%, 50%)" strokeWidth="2" />;
+                    return <line key={i} x1={points[i - 1].x} y1={points[i - 1].y} x2={p.x} y2={p.y} stroke="hsl(190, 100%, 50%)" strokeWidth="2" />;
                   })}
                   {points.map((p, i) => (
                     <circle key={i} cx={p.x} cy={p.y} r="6" fill="hsl(209, 82%, 30%)" stroke="white" strokeWidth="2" />
@@ -214,7 +332,9 @@ const RegisterLandPage = () => {
                 {points.length === 0 && (
                   <div className="absolute inset-0 flex items-center justify-center">
                     <div className="text-center bg-card/80 backdrop-blur-sm rounded-xl px-6 py-4 border border-border">
+                      <MapPin className="w-8 h-8 text-primary mx-auto mb-2" />
                       <p className="text-sm text-foreground font-medium">Click on the map to trace your land boundary</p>
+                      <p className="text-xs text-muted-foreground mt-1">Mark at least 3 corner points</p>
                     </div>
                   </div>
                 )}

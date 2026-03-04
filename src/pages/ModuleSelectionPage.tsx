@@ -7,7 +7,7 @@ const modules = [
     title: "Land Protection",
     description: "Protect and monitor your land from fraud and encroachments with real-time AI & Satellite alerts.",
     icon: Shield,
-    path: "/dashboard",
+    module: "protection",
     glowClass: "glow-cyan",
     hoverBorder: "hover:border-cyan/40",
     iconGradient: "hero-gradient",
@@ -16,7 +16,7 @@ const modules = [
     title: "Land Marketplace",
     description: "Buy, sell, rent, and analyze properties with AI-driven investment scores and clear titles.",
     icon: Store,
-    path: "/marketplace",
+    module: "marketplace",
     glowClass: "glow-green",
     hoverBorder: "hover:border-accent/40",
     iconGradient: "bg-accent",
@@ -57,7 +57,7 @@ const ModuleSelectionPage = () => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.2 }}
               whileHover={{ y: -6, scale: 1.02 }}
-              onClick={() => navigate(mod.path)}
+              onClick={() => navigate(`/login?module=${mod.module}`)}
               className={`cursor-pointer p-8 rounded-2xl glass ${mod.hoverBorder} transition-all duration-300 group`}
             >
               <div className={`w-16 h-16 rounded-2xl ${mod.iconGradient} flex items-center justify-center mb-6`}>

@@ -1,20 +1,29 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Phone, ArrowRight, Shield, ChevronLeft } from "lucide-react";
+import { Phone, ArrowRight, Shield, ChevronLeft, UserPlus } from "lucide-react";
 
 const LoginPage = () => {
   const [phone, setPhone] = useState("");
   const [otp, setOtp] = useState("");
   const [step, setStep] = useState<"phone" | "otp">("phone");
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const module = searchParams.get("module") || "protection";
 
   const handleSendOtp = () => {
     if (phone.length >= 10) setStep("otp");
   };
 
   const handleVerify = () => {
-    if (otp.length === 6) navigate("/modules");
+    if (otp.length === 6) {
+      // Route based on selected module
+      if (module === "marketplace") {
+        navigate("/marketplace");
+      } else {
+        navigate("/dashboard");
+      }
+    }
   };
 
   return (
@@ -48,7 +57,7 @@ const LoginPage = () => {
             transition={{ delay: 0.4 }}
             className="text-primary-foreground/60 text-sm"
           >
-            AI-Powered Digital Land Protection
+            {module === "marketplace" ? "AI-Powered Land Marketplace" : "AI-Powered Land Protection"}
           </motion.p>
           <motion.p
             initial={{ opacity: 0 }}
@@ -112,6 +121,20 @@ const LoginPage = () => {
                     className="w-full h-12 rounded-xl hero-gradient-subtle text-primary-foreground font-semibold flex items-center justify-center gap-2 hover:opacity-90 transition-opacity shadow-lg shadow-primary/20"
                   >
                     Send OTP <ArrowRight className="w-4 h-4" />
+                  </button>
+
+                  {/* New Register Button */}
+                  <div className="relative flex items-center gap-4 py-2">
+                    <div className="flex-1 h-px bg-border" />
+                    <span className="text-xs text-muted-foreground font-medium">or</span>
+                    <div className="flex-1 h-px bg-border" />
+                  </div>
+
+                  <button
+                    onClick={() => navigate(`/register?module=${module}`)}
+                    className="w-full h-12 rounded-xl border-2 border-primary/30 bg-primary/5 text-primary font-semibold flex items-center justify-center gap-2 hover:bg-primary/10 hover:border-primary/50 transition-all"
+                  >
+                    <UserPlus className="w-4 h-4" /> New Register
                   </button>
                 </div>
               </motion.div>
