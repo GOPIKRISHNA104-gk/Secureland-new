@@ -527,7 +527,8 @@ ${floodRisk.score >= 50 ? "⚠️ HIGH RISK: This property has significant flood
                             </div>
                         </div>
 
-                        {activeTab === "terrain" ? (
+                        {/* Both rendered, but only one visible — prevents Google Maps DOM crash */}
+                        <div className={activeTab === "terrain" ? "block w-full h-full" : "hidden"}>
                             <Terrain3DViewer
                                 lat={property.latitude}
                                 lng={property.longitude}
@@ -535,13 +536,14 @@ ${floodRisk.score >= 50 ? "⚠️ HIGH RISK: This property has significant flood
                                 waterLevel={waterLevel}
                                 riskLevel={floodRisk.level}
                             />
-                        ) : (
+                        </div>
+                        <div className={activeTab === "satellite" ? "block w-full h-full" : "hidden"}>
                             <SatelliteMapPreview
                                 lat={property.latitude}
                                 lng={property.longitude}
                                 label={property.name}
                             />
-                        )}
+                        </div>
                     </div>
 
                     {/* Simulation Controls */}
