@@ -1,15 +1,20 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Camera, FileText, Upload, MapPin, User, Phone, Ruler, ArrowRight, Scan, CheckCircle, Plus, Globe, Image } from "lucide-react";
+import {
+  Camera, FileText, Upload, MapPin, User, Phone, Ruler, ArrowRight,
+  Scan, CheckCircle, Plus, Globe, Image, Trash2, Loader2, Square
+} from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "AIzaSyADeLSm5n2zxbGooVoS6zggXITfSjbBsfo";
 
-// Isolated Google Maps Boundary component
-const BoundaryMap = ({ onPointAdd, points, onClear }: {
-  onPointAdd: (lat: number, lng: number) => void;
+// =============================================
+// GOOGLE MAPS BOUNDARY DRAWING COMPONENT
+// =============================================
+const BoundaryMap = ({ points, onPointsChange }: {
   points: { lat: number; lng: number }[];
-  onClear: () => void;
+  onPointsChange: (pts: { lat: number; lng: number }[]) => void;
 }) => {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
@@ -21,30 +26,27 @@ const BoundaryMap = ({ onPointAdd, points, onClear }: {
 
     const initMap = () => {
       const google = (window as any).google;
-      if (!google?.maps) {
-        setTimeout(initMap, 300);
-        return;
-      }
+      if (!google?.maps) { setTimeout(initMap, 300); return; }
 
       const map = new google.maps.Map(mapRef.current!, {
-        center: { lat: 13.0827, lng: 80.2707 }, // Chennai default
-        zoom: 15,
+        center: { lat: 13.0827, lng: 80.2707 },
+        zoom: 14,
         mapTypeId: "satellite",
         disableDefaultUI: false,
         zoomControl: true,
         mapTypeControl: true,
         streetViewControl: false,
         fullscreenControl: true,
+        gestureHandling: "greedy",
       });
 
       map.addListener("click", (e: any) => {
-        onPointAdd(e.latLng.lat(), e.latLng.lng());
+        onPointsChange([...points, { lat: e.latLng.lat(), lng: e.latLng.lng() }]);
       });
 
       mapInstanceRef.current = map;
     };
 
-    // Load Google Maps
     if ((window as any).google?.maps) {
       initMap();
     } else if (!document.getElementById("google-maps-script")) {
@@ -56,79 +58,123 @@ const BoundaryMap = ({ onPointAdd, points, onClear }: {
       document.head.appendChild(script);
     } else {
       const poll = setInterval(() => {
-        if ((window as any).google?.maps) {
-          clearInterval(poll);
-          initMap();
-        }
+        if ((window as any).google?.maps) { clearInterval(poll); initMap(); }
       }, 200);
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []); // eslint-disable-line
 
-  // Update markers and polygon when points change
+  // Re-register click handler when points change
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    const google = (window as any).google;
+    if (!map || !google?.maps) return;
+
+    // Clear previous listeners and re-add
+    google.maps.event.clearListeners(map, "click");
+    map.addListener("click", (e: any) => {
+      onPointsChange([...points, { lat: e.latLng.lat(), lng: e.latLng.lng() }]);
+    });
+  }, [points, onPointsChange]);
+
+  // Update markers & polygon
   useEffect(() => {
     const google = (window as any).google;
     if (!google?.maps || !mapInstanceRef.current) return;
 
-    // Clear old markers
     markersRef.current.forEach(m => m.setMap(null));
     markersRef.current = [];
+    if (polygonRef.current) { polygonRef.current.setMap(null); polygonRef.current = null; }
 
-    // Clear old polygon
-    if (polygonRef.current) {
-      polygonRef.current.setMap(null);
-      polygonRef.current = null;
-    }
-
-    // Add new markers
     points.forEach((p, i) => {
       const marker = new google.maps.Marker({
         position: { lat: p.lat, lng: p.lng },
         map: mapInstanceRef.current,
-        label: { text: `${i + 1}`, color: "#fff", fontWeight: "bold", fontSize: "12px" },
+        draggable: true,
+        label: { text: `${i + 1}`, color: "#fff", fontWeight: "bold", fontSize: "11px" },
         icon: {
-          path: google.maps.SymbolPath.CIRCLE,
-          scale: 10,
-          fillColor: "#2563EB",
-          fillOpacity: 1,
-          strokeColor: "#fff",
-          strokeWeight: 2,
+          path: google.maps.SymbolPath.CIRCLE, scale: 10,
+          fillColor: "#2563EB", fillOpacity: 1, strokeColor: "#fff", strokeWeight: 2,
         },
+      });
+      // Allow dragging to edit boundary
+      marker.addListener("dragend", (e: any) => {
+        const updated = [...points];
+        updated[i] = { lat: e.latLng.lat(), lng: e.latLng.lng() };
+        onPointsChange(updated);
       });
       markersRef.current.push(marker);
     });
 
-    // Add polygon if 3+ points
     if (points.length >= 3) {
       polygonRef.current = new google.maps.Polygon({
         paths: points.map(p => ({ lat: p.lat, lng: p.lng })),
-        strokeColor: "#00E5FF",
-        strokeOpacity: 0.9,
-        strokeWeight: 2,
-        fillColor: "#2563EB",
-        fillOpacity: 0.15,
+        strokeColor: "#00E5FF", strokeOpacity: 0.9, strokeWeight: 2.5,
+        fillColor: "#2563EB", fillOpacity: 0.15,
         map: mapInstanceRef.current,
       });
     }
 
-    // Auto-fit bounds
-    if (points.length > 0) {
+    if (points.length > 0 && points.length <= 3) {
       const bounds = new google.maps.LatLngBounds();
       points.forEach(p => bounds.extend({ lat: p.lat, lng: p.lng }));
-      mapInstanceRef.current.fitBounds(bounds, 80);
+      mapInstanceRef.current.fitBounds(bounds, 100);
     }
-  }, [points]);
+  }, [points]); // eslint-disable-line
 
   return <div ref={mapRef} className="w-full h-full" />;
 };
 
+// =============================================
+// Calculate polygon area (Shoelace formula for lat/lng)
+// =============================================
+const calculateArea = (pts: { lat: number; lng: number }[]) => {
+  if (pts.length < 3) return 0;
+  // Approximate using Haversine-based Shoelace
+  const R = 6371000; // Earth radius in meters
+  let area = 0;
+  for (let i = 0; i < pts.length; i++) {
+    const j = (i + 1) % pts.length;
+    const lat1 = pts[i].lat * Math.PI / 180;
+    const lat2 = pts[j].lat * Math.PI / 180;
+    const dLng = (pts[j].lng - pts[i].lng) * Math.PI / 180;
+    area += dLng * (2 + Math.sin(lat1) + Math.sin(lat2));
+  }
+  area = Math.abs(area * R * R / 2);
+  return Math.round(area);
+};
+
+// =============================================
+// MAIN REGISTER LAND PAGE
+// =============================================
 const RegisterLandPage = () => {
   const [stage, setStage] = useState<"landing" | "select" | "camera" | "manual">("landing");
   const [scanning, setScanning] = useState(false);
   const [scanned, setScanned] = useState(false);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
-  const [points, setPoints] = useState<{ lat: number; lng: number }[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
+  const { toast } = useToast();
+
+  // Form state
+  const [ownerName, setOwnerName] = useState("");
+  const [mobile, setMobile] = useState("");
+  const [state, setState] = useState("");
+  const [location, setLocation] = useState("");
+  const [points, setPoints] = useState<{ lat: number; lng: number }[]>([]);
+  const [submitting, setSubmitting] = useState(false);
+
+  // Pre-fill from logged in user
+  useEffect(() => {
+    const user = JSON.parse(localStorage.getItem("secureland_current_user") || "{}");
+    if (user.name) setOwnerName(user.name);
+    if (user.phone) setMobile(user.phone);
+  }, []);
+
+  const handlePointsChange = useCallback((newPoints: { lat: number; lng: number }[]) => {
+    setPoints(newPoints);
+  }, []);
+
+  const calculatedArea = calculateArea(points);
 
   const handleCameraCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -137,204 +183,143 @@ const RegisterLandPage = () => {
       reader.onload = (ev) => {
         setCapturedImage(ev.target?.result as string);
         setScanning(true);
-        setTimeout(() => {
-          setScanning(false);
-          setScanned(true);
-        }, 3500);
+        setTimeout(() => { setScanning(false); setScanned(true); }, 3500);
       };
       reader.readAsDataURL(file);
     }
   };
 
-  const handleAddPoint = useCallback((lat: number, lng: number) => {
-    setPoints(prev => [...prev, { lat, lng }]);
-  }, []);
+  const handleSubmit = () => {
+    if (!ownerName.trim()) { toast({ title: "Owner Name Required", variant: "destructive" }); return; }
+    if (mobile.length < 10) { toast({ title: "Valid Mobile Number Required", variant: "destructive" }); return; }
+    if (!state.trim()) { toast({ title: "State Required", variant: "destructive" }); return; }
+    if (!location.trim()) { toast({ title: "Location Required", variant: "destructive" }); return; }
+    if (points.length < 3) { toast({ title: "Mark at least 3 boundary points on the map", variant: "destructive" }); return; }
 
-  const handleGenerateTwin = () => {
-    navigate("/digital-twin");
+    setSubmitting(true);
+    setTimeout(() => {
+      // Generate unique Land ID
+      const landId = `SL-${state.slice(0, 2).toUpperCase()}-${Date.now().toString(36).toUpperCase()}`;
+      const twin = {
+        landId,
+        ownerName,
+        mobile,
+        state,
+        location,
+        area: calculatedArea,
+        coordinates: points,
+        createdAt: new Date().toISOString(),
+        polygon: points,
+      };
+      // Store in localStorage
+      const existing = JSON.parse(localStorage.getItem("secureland_twins") || "[]");
+      existing.push(twin);
+      localStorage.setItem("secureland_twins", JSON.stringify(existing));
+      localStorage.setItem("secureland_latest_twin", JSON.stringify(twin));
+
+      toast({ title: "Land Registered!", description: `Land ID: ${landId}` });
+      navigate("/digital-twin");
+    }, 800);
   };
 
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="max-w-[1200px] mx-auto space-y-8">
-      {/* Hidden Camera Input */}
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*"
-        capture="environment"
-        onChange={handleCameraCapture}
-        className="hidden"
-      />
+      <input ref={fileInputRef} type="file" accept="image/*" capture="environment" onChange={handleCameraCapture} className="hidden" />
 
-      {/* Step 5: Landing — Register Land Button */}
+      {/* === LANDING === */}
       {stage === "landing" && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="flex flex-col items-center justify-center min-h-[60vh] text-center"
-        >
-          <motion.div
-            initial={{ scale: 0.8, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ delay: 0.2, type: "spring" }}
-            className="w-28 h-28 rounded-3xl bg-primary/10 flex items-center justify-center mb-8 shadow-xl shadow-primary/10 border border-primary/20 relative"
-          >
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center justify-center min-h-[60vh] text-center">
+          <motion.div initial={{ scale: 0.8 }} animate={{ scale: 1 }} transition={{ delay: 0.2, type: "spring" }}
+            className="w-28 h-28 rounded-3xl bg-primary/10 flex items-center justify-center mb-8 shadow-xl shadow-primary/10 border border-primary/20 relative">
             <div className="absolute -inset-4 bg-primary/10 blur-2xl rounded-full" />
             <MapPin className="w-12 h-12 text-primary relative z-10" />
           </motion.div>
-
-          <h1 className="text-3xl font-bold tracking-tight text-foreground mb-3">Register Your Property</h1>
-          <p className="text-muted-foreground max-w-md mb-10">
-            Add your land to the SecureLand protection network. Create a permanent digital identity and enable satellite monitoring.
-          </p>
-
-          <motion.button
-            whileHover={{ scale: 1.03, translateY: -3 }}
-            whileTap={{ scale: 0.97 }}
-            onClick={() => setStage("select")}
-            className="flex items-center gap-3 hero-gradient-subtle px-10 py-4 rounded-2xl text-white font-bold text-lg shadow-[0_0_30px_rgba(37,99,235,0.4)] hover:shadow-[0_0_40px_rgba(37,99,235,0.6)] transition-all border border-white/10"
-          >
-            <Plus className="w-6 h-6" />
-            Register Land
+          <h1 className="text-3xl font-extrabold text-foreground mb-3 tracking-tight">Digital Twin Registration</h1>
+          <p className="text-muted-foreground text-sm max-w-md mb-8">Register your land and generate its Digital Twin identity.</p>
+          <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={() => setStage("select")}
+            className="h-14 px-10 rounded-2xl hero-gradient-subtle text-primary-foreground font-semibold text-base flex items-center gap-3 shadow-xl shadow-primary/30 hover:opacity-90 transition-opacity">
+            <Plus className="w-5 h-5" /> Register New Land <ArrowRight className="w-5 h-5" />
           </motion.button>
         </motion.div>
       )}
 
-      {/* Step 6: Camera or Manual Selection */}
+      {/* === SELECT METHOD === */}
       {stage === "select" && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight text-foreground mb-1">Choose Registration Method</h1>
-            <p className="text-muted-foreground text-sm">Select how you'd like to register your land document.</p>
+            <h1 className="text-3xl font-bold text-foreground mb-1">How to Register?</h1>
+            <p className="text-muted-foreground text-sm">Choose your preferred registration method.</p>
           </div>
-
+          <button onClick={() => setStage("landing")} className="text-sm text-muted-foreground hover:text-primary transition-colors font-medium">← Back</button>
           <div className="grid md:grid-cols-2 gap-6">
-            <motion.div
-              whileHover={{ y: -4, scale: 1.01 }}
-              onClick={() => {
-                setStage("camera");
-                // Trigger native camera
-                fileInputRef.current?.click();
-              }}
-              className="glass-card-hover rounded-[24px] p-8 cursor-pointer group border border-border/50"
-            >
-              <div className="w-16 h-16 rounded-2xl hero-gradient flex items-center justify-center mb-6 shadow-lg shadow-primary/20 group-hover:shadow-xl group-hover:shadow-primary/30 transition-shadow">
-                <Camera className="w-8 h-8 text-primary-foreground" />
+            <motion.button whileHover={{ y: -4, scale: 1.01 }} onClick={() => setStage("camera")}
+              className="glass-card rounded-2xl p-8 text-left hover:border-primary/30 transition-all group">
+              <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mb-5 group-hover:bg-primary/20 transition-colors">
+                <Camera className="w-7 h-7 text-primary" />
               </div>
-              <h2 className="text-xl font-bold text-foreground mb-2">Camera Registration</h2>
-              <p className="text-sm text-muted-foreground mb-5 leading-relaxed">
-                Take a photo of your land document. Our AI will automatically extract the land details and GPS coordinates.
-              </p>
-              <span className="text-sm font-semibold text-primary flex items-center gap-2 group-hover:gap-3 transition-all">
-                Open Camera <ArrowRight className="w-4 h-4" />
-              </span>
-            </motion.div>
-
-            <motion.div
-              whileHover={{ y: -4, scale: 1.01 }}
-              onClick={() => setStage("manual")}
-              className="glass-card-hover rounded-[24px] p-8 cursor-pointer group border border-border/50"
-            >
-              <div className="w-16 h-16 rounded-2xl bg-accent flex items-center justify-center mb-6 shadow-lg shadow-accent/20 group-hover:shadow-xl group-hover:shadow-accent/30 transition-shadow">
-                <FileText className="w-8 h-8 text-primary-foreground" />
+              <h3 className="text-lg font-bold text-foreground mb-2">Camera Scan</h3>
+              <p className="text-sm text-muted-foreground">Capture land document and AI will extract details automatically.</p>
+            </motion.button>
+            <motion.button whileHover={{ y: -4, scale: 1.01 }} onClick={() => setStage("manual")}
+              className="glass-card rounded-2xl p-8 text-left hover:border-primary/30 transition-all group">
+              <div className="w-14 h-14 rounded-2xl bg-accent/10 flex items-center justify-center mb-5 group-hover:bg-accent/20 transition-colors">
+                <FileText className="w-7 h-7 text-accent" />
               </div>
-              <h2 className="text-xl font-bold text-foreground mb-2">Manual Registration</h2>
-              <p className="text-sm text-muted-foreground mb-5 leading-relaxed">
-                Manually enter your property details and mark your land boundaries using interactive Google Maps.
-              </p>
-              <span className="text-sm font-semibold text-accent flex items-center gap-2 group-hover:gap-3 transition-all">
-                Enter Details <ArrowRight className="w-4 h-4" />
-              </span>
-            </motion.div>
+              <h3 className="text-lg font-bold text-foreground mb-2">Manual Entry</h3>
+              <p className="text-sm text-muted-foreground">Enter land details and draw boundary on Google Maps.</p>
+            </motion.button>
           </div>
-
-          <button onClick={() => setStage("landing")} className="text-sm text-muted-foreground hover:text-primary transition-colors font-medium">
-            ← Back
-          </button>
         </motion.div>
       )}
 
-      {/* Step 7: Camera Registration */}
+      {/* === CAMERA SCAN === */}
       {stage === "camera" && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight text-foreground mb-1">Camera Registration</h1>
-              <p className="text-muted-foreground text-sm">Upload or capture your land document for AI processing.</p>
-            </div>
+          <div>
+            <h1 className="text-3xl font-bold text-foreground mb-1">AI Document Scanner</h1>
+            <p className="text-muted-foreground text-sm">Capture or upload your land document.</p>
           </div>
-          <button onClick={() => { setStage("select"); setScanned(false); setScanning(false); setCapturedImage(null); }} className="text-sm text-muted-foreground hover:text-primary transition-colors font-medium">
-            ← Back to options
-          </button>
-
-          <div className="glass-card rounded-[24px] p-8">
-            {!capturedImage && !scanned ? (
-              <div
-                onClick={() => fileInputRef.current?.click()}
-                className="border-2 border-dashed border-border rounded-2xl p-16 text-center cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-all"
-              >
-                <div className="w-20 h-20 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-6">
-                  <Upload className="w-8 h-8 text-primary" />
+          <button onClick={() => { setStage("select"); setCapturedImage(null); setScanned(false); }} className="text-sm text-muted-foreground hover:text-primary transition-colors font-medium">← Back</button>
+          <div className="glass-card rounded-2xl p-8 text-center">
+            {!capturedImage ? (
+              <div className="space-y-6">
+                <div className="w-24 h-24 mx-auto rounded-3xl bg-primary/10 border-2 border-dashed border-primary/30 flex items-center justify-center">
+                  <Scan className="w-10 h-10 text-primary" />
                 </div>
-                <h3 className="text-lg font-bold text-foreground mb-2">Upload or Capture Document</h3>
-                <p className="text-sm text-muted-foreground mb-4 max-w-md mx-auto">
-                  Click to open your camera or select a photo of your land deed. Supports JPG, PNG, PDF.
-                </p>
-                <div className="flex items-center justify-center gap-4">
-                  <span className="px-4 py-2 rounded-lg bg-primary/10 text-primary text-sm font-semibold flex items-center gap-2">
-                    <Camera className="w-4 h-4" /> Take Photo
-                  </span>
-                  <span className="px-4 py-2 rounded-lg bg-secondary text-foreground text-sm font-semibold flex items-center gap-2">
-                    <Image className="w-4 h-4" /> Gallery
-                  </span>
+                <div className="flex gap-4 justify-center">
+                  <button onClick={() => fileInputRef.current?.click()}
+                    className="h-12 px-6 rounded-xl hero-gradient-subtle text-primary-foreground font-semibold flex items-center gap-2 hover:opacity-90 transition-opacity shadow-lg">
+                    <Camera className="w-4 h-4" /> Capture
+                  </button>
+                  <button onClick={() => fileInputRef.current?.click()}
+                    className="h-12 px-6 rounded-xl bg-secondary border border-border text-foreground font-semibold flex items-center gap-2 hover:bg-secondary/80 transition-colors">
+                    <Upload className="w-4 h-4" /> Upload
+                  </button>
                 </div>
               </div>
             ) : scanning ? (
-              <div className="relative overflow-hidden rounded-2xl">
-                {capturedImage && (
-                  <img src={capturedImage} alt="Captured document" className="w-full h-64 object-cover rounded-2xl opacity-50" />
-                )}
-                <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/60 backdrop-blur-sm rounded-2xl">
-                  <motion.div
-                    animate={{ y: ["0%", "100%", "0%"] }}
-                    transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                    className="w-full h-1 bg-gradient-to-r from-transparent via-primary to-transparent absolute top-0"
-                  />
-                  <Scan className="w-12 h-12 text-primary mb-4 animate-pulse" />
-                  <h3 className="text-lg font-bold text-foreground">AI Document Analysis...</h3>
-                  <p className="text-sm text-muted-foreground">Extracting coordinates, owner info, and survey details.</p>
-                </div>
+              <div className="space-y-6 py-8">
+                <Loader2 className="w-16 h-16 text-primary mx-auto animate-spin" />
+                <h3 className="text-lg font-bold text-foreground">AI Document Analysis...</h3>
+                <p className="text-sm text-muted-foreground">Extracting coordinates, owner info, and survey details.</p>
               </div>
             ) : scanned ? (
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
                 <div className="flex items-center gap-2 mb-6">
-                  <CheckCircle className="w-5 h-5 text-accent" />
+                  <CheckCircle className="w-5 h-5 text-emerald-500" />
                   <h3 className="text-lg font-bold text-foreground">Data Extracted Successfully</h3>
                 </div>
-                {capturedImage && (
-                  <img src={capturedImage} alt="Captured document" className="w-full h-40 object-cover rounded-xl mb-6 border border-border" />
-                )}
+                {capturedImage && <img src={capturedImage} alt="Document" className="w-full h-40 object-cover rounded-xl mb-6 border border-border" />}
                 <div className="grid md:grid-cols-2 gap-4 mb-6">
-                  {[
-                    { label: "Owner Name", value: "John Doe" },
-                    { label: "Survey Number", value: "42A / Ooty Rd" },
-                    { label: "Land Area", value: "1.50 Acres" },
-                    { label: "Location", value: "Coimbatore North" },
-                  ].map((d) => (
+                  {[{ label: "Owner Name", value: "John Doe" }, { label: "Survey Number", value: "42A / Ooty Rd" }, { label: "Land Area", value: "1.50 Acres" }, { label: "Location", value: "Coimbatore North" }].map((d) => (
                     <div key={d.label} className="bg-secondary/50 rounded-xl p-4 border border-border/50">
                       <span className="text-xs text-muted-foreground font-medium">{d.label}</span>
                       <p className="text-sm font-bold text-foreground mt-1">{d.value}</p>
                     </div>
                   ))}
                 </div>
-                <div className="bg-secondary/50 rounded-xl p-4 mb-6 border border-border/50">
-                  <span className="text-xs text-muted-foreground font-medium">Extracted GPS Coordinates</span>
-                  <p className="text-sm font-mono font-medium text-foreground mt-1">11.0168° N, 76.9558° E | 11.0172° N, 76.9562° E</p>
-                </div>
-                <button
-                  onClick={handleGenerateTwin}
-                  className="h-12 px-8 rounded-xl hero-gradient-subtle text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity shadow-lg shadow-primary/20"
-                >
+                <button onClick={() => navigate("/digital-twin")}
+                  className="h-12 px-8 rounded-xl hero-gradient-subtle text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity shadow-lg">
                   Confirm & Generate Digital Twin <ArrowRight className="w-4 h-4 inline ml-2" />
                 </button>
               </motion.div>
@@ -343,87 +328,117 @@ const RegisterLandPage = () => {
         </motion.div>
       )}
 
-      {/* Step 8: Manual Registration */}
+      {/* === MANUAL REGISTRATION === */}
       {stage === "manual" && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
           <div>
             <h1 className="text-3xl font-bold tracking-tight text-foreground mb-1">Manual Registration</h1>
-            <p className="text-muted-foreground text-sm">Enter land details and mark boundaries on the map.</p>
+            <p className="text-muted-foreground text-sm">Enter land details and mark boundaries on Google Maps.</p>
           </div>
-          <button onClick={() => { setStage("select"); setPoints([]); }} className="text-sm text-muted-foreground hover:text-primary transition-colors font-medium">
-            ← Back to options
-          </button>
+          <button onClick={() => { setStage("select"); setPoints([]); }} className="text-sm text-muted-foreground hover:text-primary transition-colors font-medium">← Back to options</button>
 
           <div className="grid lg:grid-cols-2 gap-6">
+            {/* LEFT — Form */}
             <div className="glass-card rounded-[24px] p-8">
               <h3 className="text-lg font-bold text-foreground mb-2">Enter Land Details</h3>
               <p className="text-sm text-muted-foreground mb-6">Provide accurate information to generate the digital twin.</p>
               <div className="space-y-4">
-                {[
-                  { label: "Owner Name", icon: User, placeholder: "Enter full name", type: "text" },
-                  { label: "Mobile Number", icon: Phone, placeholder: "+91 9876543210", type: "tel" },
-                  { label: "State", icon: Globe, placeholder: "Select state", type: "text" },
-                  { label: "Location", icon: MapPin, placeholder: "Enter location / village / city", type: "text" },
-                ].map((field) => (
-                  <div key={field.label}>
-                    <label className="text-xs font-semibold text-foreground mb-1.5 block">{field.label}</label>
-                    <div className="relative">
-                      <field.icon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                      <input
-                        type={field.type}
-                        placeholder={field.placeholder}
-                        className="w-full h-11 pl-10 pr-4 rounded-xl bg-secondary border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-                      />
-                    </div>
-                  </div>
-                ))}
-
-                {/* Coordinates Display */}
+                {/* Owner Name */}
                 <div>
-                  <label className="text-xs font-semibold text-foreground mb-1.5 block">Coordinates (from Map)</label>
-                  <div className="h-11 px-4 rounded-xl bg-secondary border border-border flex items-center text-sm text-muted-foreground font-mono">
+                  <label className="text-xs font-semibold text-foreground mb-1.5 block">Owner Name</label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <input type="text" value={ownerName} onChange={(e) => setOwnerName(e.target.value)} placeholder="Enter full name"
+                      className="w-full h-11 pl-10 pr-4 rounded-xl bg-secondary border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all" />
+                  </div>
+                </div>
+                {/* Mobile */}
+                <div>
+                  <label className="text-xs font-semibold text-foreground mb-1.5 block">Mobile Number</label>
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <input type="tel" value={mobile} onChange={(e) => setMobile(e.target.value.replace(/\D/g, "").slice(0, 10))} placeholder="+91 9876543210"
+                      className="w-full h-11 pl-10 pr-4 rounded-xl bg-secondary border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all" />
+                  </div>
+                </div>
+                {/* State */}
+                <div>
+                  <label className="text-xs font-semibold text-foreground mb-1.5 block">State</label>
+                  <div className="relative">
+                    <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <select value={state} onChange={(e) => setState(e.target.value)}
+                      className="w-full h-11 pl-10 pr-4 rounded-xl bg-secondary border border-border text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all appearance-none cursor-pointer">
+                      <option value="">Select state</option>
+                      {["Tamil Nadu", "Kerala", "Karnataka", "Andhra Pradesh", "Telangana", "Maharashtra", "Gujarat", "Rajasthan", "Uttar Pradesh", "West Bengal", "Bihar", "Odisha", "Punjab", "Haryana", "Madhya Pradesh", "Other"].map(s => (
+                        <option key={s} value={s}>{s}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                {/* Location */}
+                <div>
+                  <label className="text-xs font-semibold text-foreground mb-1.5 block">Land Location</label>
+                  <div className="relative">
+                    <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <input type="text" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Village / Town / City"
+                      className="w-full h-11 pl-10 pr-4 rounded-xl bg-secondary border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all" />
+                  </div>
+                </div>
+                {/* Auto-calculated Area */}
+                <div>
+                  <label className="text-xs font-semibold text-foreground mb-1.5 block">Land Area (auto-calculated from boundary)</label>
+                  <div className="h-11 px-4 rounded-xl bg-secondary border border-border flex items-center gap-2 text-sm">
+                    <Square className="w-4 h-4 text-muted-foreground" />
+                    <span className={`font-mono font-medium ${calculatedArea > 0 ? "text-foreground" : "text-muted-foreground"}`}>
+                      {calculatedArea > 0 ? `${calculatedArea.toLocaleString()} sq.m (${(calculatedArea / 4046.86).toFixed(2)} acres)` : "Mark boundary to calculate"}
+                    </span>
+                  </div>
+                </div>
+                {/* Coordinates */}
+                <div>
+                  <label className="text-xs font-semibold text-foreground mb-1.5 block">GPS Coordinates ({points.length} points)</label>
+                  <div className="max-h-20 overflow-y-auto px-4 py-2 rounded-xl bg-secondary border border-border text-xs text-muted-foreground font-mono">
                     {points.length > 0
-                      ? `${points.length} point(s) marked — ${points.map(p => `${p.lat.toFixed(4)}°, ${p.lng.toFixed(4)}°`).join(" | ")}`
+                      ? points.map((p, i) => <div key={i}>#{i + 1}: {p.lat.toFixed(6)}°N, {p.lng.toFixed(6)}°E</div>)
                       : "Click on the map to mark boundaries →"
                     }
                   </div>
                 </div>
               </div>
-              <button
-                onClick={handleGenerateTwin}
-                disabled={points.length < 3}
-                className="mt-6 w-full h-12 rounded-xl hero-gradient-subtle text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity shadow-lg shadow-primary/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-              >
-                Submit & Generate Digital Twin <ArrowRight className="w-4 h-4" />
+
+              <button onClick={handleSubmit}
+                disabled={submitting || points.length < 3 || !ownerName || mobile.length < 10 || !state || !location}
+                className="mt-6 w-full h-12 rounded-xl hero-gradient-subtle text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity shadow-lg shadow-primary/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+                {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Submit & Generate Digital Twin <ArrowRight className="w-4 h-4" /></>}
               </button>
               {points.length < 3 && (
                 <p className="text-xs text-muted-foreground mt-3 text-center">Please draw at least 3 points on the map to define your boundary.</p>
               )}
             </div>
 
+            {/* RIGHT — Google Maps */}
             <div className="glass-card rounded-[24px] overflow-hidden">
               <div className="px-5 py-3 border-b border-border flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Scan className="w-4 h-4 text-primary" />
                   <span className="text-sm font-semibold text-foreground">Mark Land Boundaries (Google Maps)</span>
                 </div>
-                <button onClick={() => setPoints([])} className="text-xs text-muted-foreground hover:text-destructive transition-colors font-medium">
-                  Clear Map
-                </button>
+                <div className="flex items-center gap-3">
+                  <span className="text-[10px] text-muted-foreground font-mono">{points.length} pts</span>
+                  <button onClick={() => setPoints([])} className="text-xs text-muted-foreground hover:text-destructive transition-colors font-medium flex items-center gap-1">
+                    <Trash2 className="w-3 h-3" /> Clear
+                  </button>
+                </div>
               </div>
-              <div className="relative h-[450px] overflow-hidden">
-                <BoundaryMap
-                  onPointAdd={handleAddPoint}
-                  points={points}
-                  onClear={() => setPoints([])}
-                />
+              <div className="relative h-[530px] overflow-hidden">
+                <BoundaryMap points={points} onPointsChange={handlePointsChange} />
 
                 {points.length === 0 && (
                   <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
-                    <div className="text-center bg-card/80 backdrop-blur-sm rounded-xl px-6 py-4 border border-border">
+                    <div className="text-center bg-card/80 backdrop-blur-sm rounded-xl px-6 py-4 border border-border shadow-lg">
                       <MapPin className="w-8 h-8 text-primary mx-auto mb-2" />
-                      <p className="text-sm text-foreground font-medium">Click on the map to trace your land boundary</p>
-                      <p className="text-xs text-muted-foreground mt-1">Mark at least 3 corner points</p>
+                      <p className="text-sm text-foreground font-medium">Click on satellite map to mark boundary</p>
+                      <p className="text-xs text-muted-foreground mt-1">Mark at least 3 corner points • Drag to edit</p>
                     </div>
                   </div>
                 )}
