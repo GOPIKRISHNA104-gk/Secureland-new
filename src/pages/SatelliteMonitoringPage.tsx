@@ -1,38 +1,60 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { motion } from "framer-motion";
-import { Satellite, Focus, Map, Activity, Layers, ZoomIn, ZoomOut, Locate } from "lucide-react";
+import { Satellite, Focus, Map, Activity, Layers, ZoomIn, ZoomOut, Locate, User, MapPin, Ruler, Shield } from "lucide-react";
 import AlertCard from "@/components/AlertCard";
 
-const GOOGLE_MAPS_API_KEY = "AIzaSyADeLSm5n2zxbGooVoS6zggXITfSjbBsfo";
+const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "AIzaSyADeLSm5n2zxbGooVoS6zggXITfSjbBsfo";
 
-const monitoredPlots = [
+interface MonitoredPlot {
+  id: string;
+  name: string;
+  center: { lat: number; lng: number };
+  status: string;
+  lastScan: string;
+  boundary: { lat: number; lng: number }[];
+  ownerName?: string;
+  location?: string;
+  area?: number;
+  isRegistered?: boolean;
+}
+
+const defaultPlots: MonitoredPlot[] = [
   {
-    id: "SL-2847A",
-    name: "Plot #SL-2847A",
-    center: { lat: 11.0168, lng: 76.9558 },
-    status: "safe",
-    lastScan: "1 min ago",
-    boundary: [
-      { lat: 11.0175, lng: 76.9548 },
-      { lat: 11.0180, lng: 76.9565 },
-      { lat: 11.0165, lng: 76.9572 },
-      { lat: 11.0158, lng: 76.9555 },
-    ],
+    id: "SL-2847A", name: "Plot #SL-2847A",
+    center: { lat: 11.0168, lng: 76.9558 }, status: "safe", lastScan: "1 min ago",
+    boundary: [{ lat: 11.0175, lng: 76.9548 }, { lat: 11.0180, lng: 76.9565 }, { lat: 11.0165, lng: 76.9572 }, { lat: 11.0158, lng: 76.9555 }],
   },
   {
-    id: "SL-1923B",
-    name: "Plot #SL-1923B",
-    center: { lat: 11.0210, lng: 76.9620 },
-    status: "alert",
-    lastScan: "Live",
-    boundary: [
-      { lat: 11.0215, lng: 76.9612 },
-      { lat: 11.0220, lng: 76.9630 },
-      { lat: 11.0205, lng: 76.9635 },
-      { lat: 11.0200, lng: 76.9618 },
-    ],
+    id: "SL-1923B", name: "Plot #SL-1923B",
+    center: { lat: 11.0210, lng: 76.9620 }, status: "alert", lastScan: "Live",
+    boundary: [{ lat: 11.0215, lng: 76.9612 }, { lat: 11.0220, lng: 76.9630 }, { lat: 11.0205, lng: 76.9635 }, { lat: 11.0200, lng: 76.9618 }],
   },
 ];
+
+// Build monitored plots from localStorage Digital Twins
+const getRegisteredPlots = (): MonitoredPlot[] => {
+  try {
+    const twins = JSON.parse(localStorage.getItem("secureland_twins") || "[]");
+    return twins.map((twin: any) => {
+      const coords = twin.coordinates || twin.polygon || [];
+      const center = coords.length > 0
+        ? { lat: coords.reduce((s: number, c: any) => s + c.lat, 0) / coords.length, lng: coords.reduce((s: number, c: any) => s + c.lng, 0) / coords.length }
+        : { lat: 13.0827, lng: 80.2707 };
+      return {
+        id: twin.landId,
+        name: `${twin.ownerName}'s Land`,
+        center,
+        status: "safe",
+        lastScan: "Just registered",
+        boundary: coords,
+        ownerName: twin.ownerName,
+        location: twin.location,
+        area: twin.area,
+        isRegistered: true,
+      };
+    });
+  } catch { return []; }
+};
 
 // Load Google Maps API with async loading
 const loadGoogleMaps = (): Promise<void> => {
@@ -80,7 +102,7 @@ const loadGoogleMaps = (): Promise<void> => {
 };
 
 // Isolated Google Map component that prevents React DOM conflicts
-const GoogleMapView = ({ onMapReady }: { onMapReady: (map: any) => void }) => {
+const GoogleMapView = ({ onMapReady, plots }: { onMapReady: (map: any) => void; plots: MonitoredPlot[] }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
 
@@ -93,9 +115,14 @@ const GoogleMapView = ({ onMapReady }: { onMapReady: (map: any) => void }) => {
         if (cancelled || !containerRef.current || mapInstanceRef.current) return;
 
         const google = (window as any).google;
+
+        // Center on registered land if available, else default
+        const registeredLand = plots.find(p => p.isRegistered);
+        const center = registeredLand ? registeredLand.center : plots[0]?.center || { lat: 13.0827, lng: 80.2707 };
+
         const map = new google.maps.Map(containerRef.current, {
-          center: { lat: 11.0185, lng: 76.9585 },
-          zoom: 16,
+          center,
+          zoom: registeredLand ? 17 : 16,
           mapTypeId: "satellite",
           disableDefaultUI: true,
           zoomControl: false,
@@ -109,61 +136,71 @@ const GoogleMapView = ({ onMapReady }: { onMapReady: (map: any) => void }) => {
         mapInstanceRef.current = map;
 
         // Draw plot boundaries and markers
-        monitoredPlots.forEach((plot) => {
+        plots.forEach((plot) => {
+          if (plot.boundary.length < 3) return;
+
+          const strokeColor = plot.isRegistered ? "#00E5FF" : plot.status === "alert" ? "#EF4444" : "#2563EB";
+          const fillColor = plot.isRegistered ? "#00E5FF" : plot.status === "alert" ? "#EF4444" : "#2563EB";
+
           const polygon = new google.maps.Polygon({
             paths: plot.boundary,
-            strokeColor: plot.status === "alert" ? "#EF4444" : "#2563EB",
+            strokeColor,
             strokeOpacity: 0.9,
-            strokeWeight: 3,
-            fillColor: plot.status === "alert" ? "#EF4444" : "#2563EB",
-            fillOpacity: 0.15,
+            strokeWeight: plot.isRegistered ? 3 : 2,
+            fillColor,
+            fillOpacity: plot.isRegistered ? 0.2 : 0.15,
             map,
           });
 
           if (plot.status === "alert") {
             new google.maps.Circle({
-              center: plot.center,
-              radius: 30,
-              strokeColor: "#EF4444",
-              strokeOpacity: 0.4,
-              strokeWeight: 2,
-              fillColor: "#EF4444",
-              fillOpacity: 0.1,
-              map,
+              center: plot.center, radius: 30,
+              strokeColor: "#EF4444", strokeOpacity: 0.4, strokeWeight: 2,
+              fillColor: "#EF4444", fillOpacity: 0.1, map,
             });
           }
 
-          const infoWindow = new google.maps.InfoWindow({
-            content: `
-              <div style="font-family:'Inter',sans-serif;padding:8px;min-width:180px">
+          const infoContent = plot.isRegistered
+            ? `<div style="font-family:'Inter',sans-serif;padding:8px;min-width:200px">
+                <h3 style="font-size:14px;font-weight:700;margin-bottom:6px;color:#1e293b">${plot.name}</h3>
+                <div style="font-size:12px;color:#64748b;line-height:1.8">
+                  <div><b>Land ID:</b> <span style="font-family:monospace;color:#2563EB">${plot.id}</span></div>
+                  <div><b>Owner:</b> ${plot.ownerName}</div>
+                  <div><b>Location:</b> ${plot.location}</div>
+                  <div><b>Area:</b> ${plot.area?.toLocaleString()} sq.m</div>
+                  <div><b>Status:</b> <span style="color:#10B981;font-weight:600">✅ Monitored</span></div>
+                  <div><b>Coords:</b> ${plot.center.lat.toFixed(4)}, ${plot.center.lng.toFixed(4)}</div>
+                </div>
+              </div>`
+            : `<div style="font-family:'Inter',sans-serif;padding:8px;min-width:180px">
                 <h3 style="font-size:14px;font-weight:700;margin-bottom:6px;color:#1e293b">${plot.name}</h3>
                 <div style="font-size:12px;color:#64748b;line-height:1.6">
                   <div><b>Status:</b> <span style="color:${plot.status === "alert" ? "#EF4444" : "#10B981"};font-weight:600">${plot.status === "alert" ? "⚠️ Alert" : "✅ Secured"}</span></div>
                   <div><b>Last Scan:</b> ${plot.lastScan}</div>
                   <div><b>Coords:</b> ${plot.center.lat.toFixed(4)}, ${plot.center.lng.toFixed(4)}</div>
                 </div>
-              </div>`,
-          });
+              </div>`;
 
+          const infoWindow = new google.maps.InfoWindow({ content: infoContent });
+
+          const markerColor = plot.isRegistered ? "#00E5FF" : plot.status === "alert" ? "#EF4444" : "#2563EB";
           const marker = new google.maps.Marker({
-            position: plot.center,
-            map,
+            position: plot.center, map,
             icon: {
               path: google.maps.SymbolPath.CIRCLE,
-              scale: plot.status === "alert" ? 10 : 8,
-              fillColor: plot.status === "alert" ? "#EF4444" : "#2563EB",
-              fillOpacity: 1,
-              strokeColor: "#FFFFFF",
-              strokeWeight: 3,
+              scale: plot.isRegistered ? 12 : plot.status === "alert" ? 10 : 8,
+              fillColor: markerColor, fillOpacity: 1, strokeColor: "#FFFFFF", strokeWeight: 3,
             },
             title: plot.name,
           });
 
           marker.addListener("click", () => infoWindow.open(map, marker));
-          polygon.addListener("click", () => {
-            infoWindow.setPosition(plot.center);
-            infoWindow.open(map);
-          });
+          polygon.addListener("click", () => { infoWindow.setPosition(plot.center); infoWindow.open(map); });
+
+          // Auto-open info for registered land
+          if (plot.isRegistered) {
+            infoWindow.open(map, marker);
+          }
         });
 
         onMapReady(map);
@@ -189,6 +226,12 @@ const SatelliteMonitoringPage = () => {
   const [mapType, setMapType] = useState<"satellite" | "hybrid" | "terrain">("satellite");
   const [mapLoaded, setMapLoaded] = useState(false);
 
+  // Merge registered lands + default plots
+  const monitoredPlots = useMemo(() => {
+    const registered = getRegisteredPlots();
+    return [...registered, ...defaultPlots];
+  }, []);
+
   const handleMapReady = useCallback((map: any) => {
     googleMapRef.current = map;
     setMapLoaded(true);
@@ -206,9 +249,10 @@ const SatelliteMonitoringPage = () => {
     if (googleMapRef.current) googleMapRef.current.setZoom(googleMapRef.current.getZoom() - 1);
   };
   const resetView = () => {
+    const reg = monitoredPlots.find(p => p.isRegistered);
     if (googleMapRef.current) {
-      googleMapRef.current.setCenter({ lat: 11.0185, lng: 76.9585 });
-      googleMapRef.current.setZoom(16);
+      googleMapRef.current.setCenter(reg ? reg.center : { lat: 13.0827, lng: 80.2707 });
+      googleMapRef.current.setZoom(reg ? 17 : 16);
       googleMapRef.current.setTilt(45);
     }
   };
@@ -312,7 +356,7 @@ const SatelliteMonitoringPage = () => {
 
           {/* Google Maps — isolated from React's DOM reconciliation */}
           <div className="w-full h-full" style={{ minHeight: 400 }}>
-            <GoogleMapView onMapReady={handleMapReady} />
+            <GoogleMapView onMapReady={handleMapReady} plots={monitoredPlots} />
           </div>
         </div>
 
@@ -328,21 +372,31 @@ const SatelliteMonitoringPage = () => {
                 <div
                   key={plot.id}
                   onClick={() => panToPlot(plot.center)}
-                  className={`p-3 rounded-xl border cursor-pointer transition-all hover:shadow-md ${plot.status === "alert"
-                    ? "bg-destructive/5 border-destructive/20 hover:bg-destructive/10"
-                    : "bg-primary/5 border-primary/20 hover:bg-primary/10"
+                  className={`p-3 rounded-xl border cursor-pointer transition-all hover:shadow-md ${plot.isRegistered
+                      ? "bg-cyan-500/5 border-cyan-500/20 hover:bg-cyan-500/10 ring-1 ring-cyan-500/20"
+                      : plot.status === "alert"
+                        ? "bg-destructive/5 border-destructive/20 hover:bg-destructive/10"
+                        : "bg-primary/5 border-primary/20 hover:bg-primary/10"
                     }`}
                 >
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-sm font-bold text-foreground">{plot.name}</span>
-                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-md ${plot.status === "alert" ? "bg-destructive/10 text-destructive" : "bg-accent/10 text-accent"
+                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-md ${plot.isRegistered
+                        ? "bg-cyan-500/10 text-cyan-500"
+                        : plot.status === "alert" ? "bg-destructive/10 text-destructive" : "bg-accent/10 text-accent"
                       }`}>
-                      {plot.status === "alert" ? "Alert" : "Secured"}
+                      {plot.isRegistered ? "Your Land" : plot.status === "alert" ? "Alert" : "Secured"}
                     </span>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    {plot.center.lat.toFixed(4)}, {plot.center.lng.toFixed(4)} • Scanned {plot.lastScan}
+                    {plot.isRegistered && plot.location ? `${plot.location} • ` : ""}
+                    {plot.center.lat.toFixed(4)}, {plot.center.lng.toFixed(4)} • {plot.lastScan}
                   </p>
+                  {plot.isRegistered && plot.area && (
+                    <p className="text-xs text-cyan-500/80 mt-1 font-mono">
+                      {plot.area.toLocaleString()} sq.m • ID: {plot.id}
+                    </p>
+                  )}
                 </div>
               ))}
             </div>
