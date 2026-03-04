@@ -37,21 +37,43 @@ const monitoredPlots = [
 // Load Google Maps API with async loading
 const loadGoogleMaps = (): Promise<void> => {
   return new Promise((resolve, reject) => {
+    // Already loaded
     if ((window as any).google?.maps) {
       resolve();
       return;
     }
+
+    // Script already in DOM — poll until google.maps is available
     const existingScript = document.getElementById("google-maps-script");
     if (existingScript) {
-      existingScript.addEventListener("load", () => resolve());
+      let attempts = 0;
+      const poll = setInterval(() => {
+        if ((window as any).google?.maps) {
+          clearInterval(poll);
+          resolve();
+        } else if (++attempts > 50) {
+          clearInterval(poll);
+          reject(new Error("Google Maps timed out"));
+        }
+      }, 200);
       return;
     }
+
+    // First load — create script
     const script = document.createElement("script");
     script.id = "google-maps-script";
     script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&loading=async`;
     script.async = true;
     script.defer = true;
-    script.onload = () => resolve();
+    script.onload = () => {
+      // Poll until google.maps object is actually available
+      const poll = setInterval(() => {
+        if ((window as any).google?.maps) {
+          clearInterval(poll);
+          resolve();
+        }
+      }, 100);
+    };
     script.onerror = () => reject(new Error("Failed to load Google Maps"));
     document.head.appendChild(script);
   });
@@ -232,8 +254,8 @@ const SatelliteMonitoringPage = () => {
                 key={t.type}
                 onClick={() => changeMapType(t.type)}
                 className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border shadow-lg text-sm font-medium transition-all ${mapType === t.type
-                    ? "bg-primary text-primary-foreground border-primary"
-                    : "bg-background/80 backdrop-blur-md border-border/50 text-foreground hover:bg-secondary"
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-background/80 backdrop-blur-md border-border/50 text-foreground hover:bg-secondary"
                   }`}
               >
                 <t.icon className="w-4 h-4" />
@@ -307,8 +329,8 @@ const SatelliteMonitoringPage = () => {
                   key={plot.id}
                   onClick={() => panToPlot(plot.center)}
                   className={`p-3 rounded-xl border cursor-pointer transition-all hover:shadow-md ${plot.status === "alert"
-                      ? "bg-destructive/5 border-destructive/20 hover:bg-destructive/10"
-                      : "bg-primary/5 border-primary/20 hover:bg-primary/10"
+                    ? "bg-destructive/5 border-destructive/20 hover:bg-destructive/10"
+                    : "bg-primary/5 border-primary/20 hover:bg-primary/10"
                     }`}
                 >
                   <div className="flex items-center justify-between mb-1">

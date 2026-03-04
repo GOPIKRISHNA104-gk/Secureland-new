@@ -127,7 +127,7 @@ const SatelliteMapPreview = ({ lat, lng, label }: { lat: number; lng: number; la
         const initMap = () => {
             const google = (window as any).google;
             if (!google?.maps) {
-                setTimeout(initMap, 500);
+                setTimeout(initMap, 300);
                 return;
             }
             const map = new google.maps.Map(mapRef.current!, {
@@ -139,7 +139,6 @@ const SatelliteMapPreview = ({ lat, lng, label }: { lat: number; lng: number; la
             });
             new google.maps.Marker({ position: { lat, lng }, map, title: label });
 
-            // Property boundary circle
             new google.maps.Circle({
                 center: { lat, lng },
                 radius: 100,
@@ -154,15 +153,24 @@ const SatelliteMapPreview = ({ lat, lng, label }: { lat: number; lng: number; la
             mapInstance.current = map;
         };
 
-        // Load Google Maps if not loaded
-        if (!(window as any).google?.maps) {
+        // Check if Google Maps is already loaded or loading
+        if ((window as any).google?.maps) {
+            initMap();
+        } else if (!document.getElementById("google-maps-script")) {
             const script = document.createElement("script");
+            script.id = "google-maps-script";
             script.src = `https://maps.googleapis.com/maps/api/js?key=${import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "AIzaSyADeLSm5n2zxbGooVoS6zggXITfSjbBsfo"}&loading=async`;
             script.async = true;
-            script.onload = () => setTimeout(initMap, 100);
+            script.onload = () => setTimeout(initMap, 200);
             document.head.appendChild(script);
         } else {
-            initMap();
+            // Script exists but maps not ready — poll
+            const poll = setInterval(() => {
+                if ((window as any).google?.maps) {
+                    clearInterval(poll);
+                    initMap();
+                }
+            }, 200);
         }
     }, [lat, lng, label]);
 
