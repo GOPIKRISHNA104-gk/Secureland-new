@@ -17,7 +17,12 @@ import SatelliteMonitoringPage from "./pages/SatelliteMonitoringPage";
 import FraudProtectionPage from "./pages/FraudProtectionPage";
 import ConstructionAnalyzerPage from "./pages/ConstructionAnalyzerPage";
 import WaterIntelligencePage from "./pages/WaterIntelligencePage";
+import RealTimeAlertsPage from "./pages/RealTimeAlertsPage";
+import OwnershipTransferPage from "./pages/OwnershipTransferPage";
+import LoanVerificationPage from "./pages/LoanVerificationPage";
 import MarketplacePage from "./pages/MarketplacePage";
+import PropertyExplorerPage from "./pages/PropertyExplorerPage";
+import AreaSafetyPage from "./pages/AreaSafetyPage";
 import InvestmentAnalyticsPage from "./pages/InvestmentAnalyticsPage";
 import ReportsPage from "./pages/ReportsPage";
 import SettingsPage from "./pages/SettingsPage";
@@ -43,32 +48,43 @@ const App = () => {
             {/* Step 1: After splash, go to Module Selection */}
             <Route path="/" element={<Navigate to="/modules" replace />} />
 
-            {/* Step 2: Module Selection (Land Protection / Land Marketplace) */}
+            {/* Step 2: Module Selection */}
             <Route path="/modules" element={<ModuleSelectionPage />} />
 
-            {/* Step 3: Login (Mobile + OTP + New Register button) */}
+            {/* Step 3: Login */}
             <Route path="/login" element={<LoginPage />} />
 
-            {/* Step 4: New Register Page */}
+            {/* Step 4: Register */}
             <Route path="/register" element={<RegisterPage />} />
 
-            {/* Step 9: Digital Twin generation result */}
+            {/* Digital Twin generation */}
             <Route path="/digital-twin" element={<DigitalTwinPage />} />
 
-            {/* Protected App Layout routes */}
+            {/* App Layout routes */}
             <Route element={<AppLayout />}>
+              {/* Dashboard */}
               <Route path="/dashboard" element={<DashboardPage />} />
-              <Route path="/land-protection" element={<LandProtectionPage />} />
-              {/* Steps 5-8: Register Land (Camera or Manual) */}
+
+              {/* LAND PROTECTION */}
               <Route path="/register-land" element={<RegisterLandPage />} />
-              <Route path="/satellite" element={<SatelliteMonitoringPage />} />
+              <Route path="/land-protection" element={<LandProtectionPage />} />
               <Route path="/fraud-protection" element={<FraudProtectionPage />} />
+              <Route path="/satellite" element={<SatelliteMonitoringPage />} />
+              <Route path="/alerts" element={<RealTimeAlertsPage />} />
               <Route path="/construction" element={<ConstructionAnalyzerPage />} />
               <Route path="/water" element={<WaterIntelligencePage />} />
+              <Route path="/ownership-transfer" element={<OwnershipTransferPage />} />
+              <Route path="/loan-verification" element={<LoanVerificationPage />} />
+              <Route path="/reports" element={<ReportsPage />} />
+
+              {/* LAND MARKETPLACE */}
+              <Route path="/property-explorer" element={<PropertyExplorerPage />} />
               <Route path="/marketplace" element={<MarketplacePage />} />
               <Route path="/property/:id" element={<PropertyDetailsPage />} />
               <Route path="/investments" element={<InvestmentAnalyticsPage />} />
-              <Route path="/reports" element={<ReportsPage />} />
+              <Route path="/area-safety" element={<AreaSafetyPage />} />
+
+              {/* Common */}
               <Route path="/settings" element={<SettingsPage />} />
             </Route>
             <Route path="*" element={<NotFound />} />

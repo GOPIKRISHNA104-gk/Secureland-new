@@ -1,25 +1,60 @@
 import {
-  LayoutDashboard, Shield, FileText, Satellite, AlertTriangle,
+  LayoutDashboard, Shield, FileText, Satellite, AlertTriangle, Bell,
   Building2, Droplets, Store, TrendingUp, BarChart3, Settings,
-  ChevronLeft, ChevronRight, Menu
+  ChevronLeft, ChevronRight, ArrowRightLeft, Landmark, Map, ShieldCheck
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 
-const navItems = [
-  { title: "Dashboard", path: "/dashboard", icon: LayoutDashboard },
-  { title: "Register Land", path: "/register-land", icon: FileText },
-  { title: "Land Protection", path: "/land-protection", icon: Shield },
-  { title: "Satellite Monitoring", path: "/satellite", icon: Satellite },
-  { title: "Fraud Protection", path: "/fraud-protection", icon: AlertTriangle },
-  { title: "Construction Analyzer", path: "/construction", icon: Building2 },
-  { title: "Water Intelligence", path: "/water", icon: Droplets },
-  { title: "Property Intelligence", path: "/investments", icon: TrendingUp },
-  { title: "Marketplace", path: "/marketplace", icon: Store },
-  { title: "Reports", path: "/reports", icon: BarChart3 },
-  { title: "Settings", path: "/settings", icon: Settings },
+interface NavItem {
+  title: string;
+  path: string;
+  icon: any;
+}
+
+interface NavSection {
+  label: string;
+  items: NavItem[];
+}
+
+const navSections: NavSection[] = [
+  {
+    label: "",
+    items: [
+      { title: "Dashboard", path: "/dashboard", icon: LayoutDashboard },
+    ],
+  },
+  {
+    label: "Land Protection",
+    items: [
+      { title: "Digital Twin Registration", path: "/register-land", icon: FileText },
+      { title: "Fraud Protection", path: "/fraud-protection", icon: AlertTriangle },
+      { title: "Satellite Monitoring", path: "/satellite", icon: Satellite },
+      { title: "Real-Time Alerts", path: "/alerts", icon: Bell },
+      { title: "Construction Analyzer", path: "/construction", icon: Building2 },
+      { title: "Water Resources", path: "/water", icon: Droplets },
+      { title: "Sale & Transfer", path: "/ownership-transfer", icon: ArrowRightLeft },
+      { title: "Loan Verification", path: "/loan-verification", icon: Landmark },
+      { title: "Safety Reports", path: "/reports", icon: BarChart3 },
+    ],
+  },
+  {
+    label: "Land Marketplace",
+    items: [
+      { title: "Property Explorer", path: "/property-explorer", icon: Map },
+      { title: "Buy / Sell / Rent", path: "/marketplace", icon: Store },
+      { title: "Property Intelligence", path: "/investments", icon: TrendingUp },
+      { title: "Area Safety Scores", path: "/area-safety", icon: ShieldCheck },
+    ],
+  },
+  {
+    label: "",
+    items: [
+      { title: "Settings", path: "/settings", icon: Settings },
+    ],
+  },
 ];
 
 const AppSidebar = () => {
@@ -27,50 +62,71 @@ const AppSidebar = () => {
 
   return (
     <motion.aside
-      animate={{ width: collapsed ? 72 : 260 }}
+      animate={{ width: collapsed ? 72 : 270 }}
       transition={{ duration: 0.3, ease: "easeInOut" }}
       className="h-[calc(100vh-68px)] sticky top-[68px] glass-light dark:bg-card/40 border-r border-border/40 flex flex-col overflow-hidden z-40 shadow-[4px_0_24px_-12px_rgba(0,0,0,0.1)]"
     >
-      <nav className="flex-1 py-6 px-3 space-y-1.5 overflow-y-auto custom-scrollbar">
-        {navItems.map((item) => (
-          <NavLink
-            key={item.path}
-            to={item.path}
-            className={({ isActive }) =>
-              cn(
-                "flex items-center gap-3 px-3 py-2.5 rounded-xl text-[14px] font-medium transition-all duration-300 group relative overflow-hidden",
-                isActive
-                  ? "text-primary font-semibold bg-primary/10 shadow-[inset_4px_0_0_0_hsl(var(--primary))] dark:bg-primary/20"
-                  : "text-muted-foreground hover:text-foreground hover:bg-secondary/80"
-              )
-            }
-          >
-            {({ isActive }) => (
-              <>
-                {isActive && (
-                  <motion.div
-                    layoutId="active-sidebar-bg"
-                    className="absolute inset-0 bg-primary/5 dark:bg-primary/10 z-0"
-                    transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                  />
-                )}
-                <item.icon className={cn("w-[22px] h-[22px] shrink-0 z-10 transition-colors", isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground")} />
-                <AnimatePresence>
-                  {!collapsed && (
-                    <motion.span
-                      initial={{ opacity: 0, x: -10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: -10 }}
-                      transition={{ duration: 0.2 }}
-                      className="whitespace-nowrap z-10"
-                    >
-                      {item.title}
-                    </motion.span>
-                  )}
-                </AnimatePresence>
-              </>
+      <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto custom-scrollbar">
+        {navSections.map((section, sIdx) => (
+          <div key={sIdx}>
+            {/* Section Label */}
+            {section.label && !collapsed && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="px-3 pt-4 pb-2"
+              >
+                <span className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground/60">
+                  {section.label}
+                </span>
+              </motion.div>
             )}
-          </NavLink>
+            {section.label && collapsed && (
+              <div className="my-2 mx-3 h-px bg-border/50" />
+            )}
+
+            {/* Section Items */}
+            {section.items.map((item) => (
+              <NavLink
+                key={item.path}
+                to={item.path}
+                className={({ isActive }) =>
+                  cn(
+                    "flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-all duration-300 group relative overflow-hidden mb-0.5",
+                    isActive
+                      ? "text-primary font-semibold bg-primary/10 shadow-[inset_4px_0_0_0_hsl(var(--primary))] dark:bg-primary/20"
+                      : "text-muted-foreground hover:text-foreground hover:bg-secondary/80"
+                  )
+                }
+              >
+                {({ isActive }) => (
+                  <>
+                    {isActive && (
+                      <motion.div
+                        layoutId="active-sidebar-bg"
+                        className="absolute inset-0 bg-primary/5 dark:bg-primary/10 z-0"
+                        transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                      />
+                    )}
+                    <item.icon className={cn("w-[20px] h-[20px] shrink-0 z-10 transition-colors", isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground")} />
+                    <AnimatePresence>
+                      {!collapsed && (
+                        <motion.span
+                          initial={{ opacity: 0, x: -10 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0, x: -10 }}
+                          transition={{ duration: 0.2 }}
+                          className="whitespace-nowrap z-10 truncate"
+                        >
+                          {item.title}
+                        </motion.span>
+                      )}
+                    </AnimatePresence>
+                  </>
+                )}
+              </NavLink>
+            ))}
+          </div>
         ))}
       </nav>
 
