@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Camera, FileText, Upload, MapPin, User, Phone, Ruler, ArrowRight,
   Scan, CheckCircle, Plus, Globe, Image, Trash2, Loader2, Square,
-  Lock, Shield, Eye, EyeOff
+  Search, X, Navigation, Lock, Eye, EyeOff, Shield
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { db } from "@/lib/firebase";
@@ -16,10 +16,11 @@ const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "AIzaSyC
 // =============================================
 // GOOGLE MAPS BOUNDARY DRAWING COMPONENT
 // =============================================
-const BoundaryMap = ({ points, onPointsChange, mapCenter }: {
+
+const BoundaryMap = ({ points, onPointsChange, onMapReady }: {
   points: { lat: number; lng: number }[];
   onPointsChange: (pts: { lat: number; lng: number }[]) => void;
-  mapCenter?: { lat: number; lng: number; zoom?: number } | null;
+  onMapReady?: (map: any) => void;
 }) => {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
@@ -37,7 +38,6 @@ const BoundaryMap = ({ points, onPointsChange, mapCenter }: {
         center: { lat: 13.0827, lng: 80.2707 },
         zoom: 14,
         mapTypeId: "satellite",
-        disableDefaultUI: false,
         zoomControl: true,
         mapTypeControl: true,
         streetViewControl: false,
@@ -50,31 +50,22 @@ const BoundaryMap = ({ points, onPointsChange, mapCenter }: {
       });
 
       mapInstanceRef.current = map;
+      if (onMapReady) onMapReady(map);
     };
 
-    if ((window as any).google?.maps) {
-      initMap();
-    } else if (!document.getElementById("google-maps-script")) {
-      const script = document.createElement("script");
-      script.id = "google-maps-script";
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&loading=async`;
-      script.async = true;
-      script.onload = () => setTimeout(initMap, 200);
-      document.head.appendChild(script);
-    } else {
-      const poll = setInterval(() => {
-        if ((window as any).google?.maps) { clearInterval(poll); initMap(); }
-      }, 200);
-    }
+    const waitForGoogle = () => {
+      if ((window as any).google?.maps) { initMap(); return; }
+      setTimeout(waitForGoogle, 200);
+    };
+
+    if ((window as any).google?.maps) initMap(); else waitForGoogle();
   }, []); // eslint-disable-line
 
-  // Re-register click handler when points change
+  // Re-register click handler
   useEffect(() => {
     const map = mapInstanceRef.current;
     const google = (window as any).google;
     if (!map || !google?.maps) return;
-
-    // Clear previous listeners and re-add
     google.maps.event.clearListeners(map, "click");
     map.addListener("click", (e: any) => {
       onPointsChange([...points, { lat: e.latLng.lat(), lng: e.latLng.lng() }]);
@@ -96,12 +87,8 @@ const BoundaryMap = ({ points, onPointsChange, mapCenter }: {
         map: mapInstanceRef.current,
         draggable: true,
         label: { text: `${i + 1}`, color: "#fff", fontWeight: "bold", fontSize: "11px" },
-        icon: {
-          path: google.maps.SymbolPath.CIRCLE, scale: 10,
-          fillColor: "#2563EB", fillOpacity: 1, strokeColor: "#fff", strokeWeight: 2,
-        },
+        icon: { path: google.maps.SymbolPath.CIRCLE, scale: 10, fillColor: "#2563EB", fillOpacity: 1, strokeColor: "#fff", strokeWeight: 2 },
       });
-      // Allow dragging to edit boundary
       marker.addListener("dragend", (e: any) => {
         const updated = [...points];
         updated[i] = { lat: e.latLng.lat(), lng: e.latLng.lng() };
@@ -126,16 +113,9 @@ const BoundaryMap = ({ points, onPointsChange, mapCenter }: {
     }
   }, [points]); // eslint-disable-line
 
-  // Pan to new center when location changes
-  useEffect(() => {
-    const map = mapInstanceRef.current;
-    if (!map || !mapCenter) return;
-    map.panTo({ lat: mapCenter.lat, lng: mapCenter.lng });
-    if (mapCenter.zoom) map.setZoom(mapCenter.zoom);
-  }, [mapCenter]);
-
   return <div ref={mapRef} className="w-full h-full" />;
 };
+
 
 // =============================================
 // Calculate polygon area (Shoelace formula for lat/lng)
@@ -190,6 +170,57 @@ const RegisterLandPage = () => {
   const [faceReady, setFaceReady] = useState(false);
   const [cameraActive, setCameraActive] = useState(false);
   const faceVideoRef = useRef<HTMLVideoElement>(null);
+
+  // Map search state
+  const mapInstanceRef = useRef<any>(null);
+  const searchMarkerRef = useRef<any>(null);
+  const [searchText, setSearchText] = useState("");
+  const [searching, setSearching] = useState(false);
+  const [selectedPlace, setSelectedPlace] = useState<string | null>(null);
+  const [searchError, setSearchError] = useState<string | null>(null);
+
+  const performSearch = useCallback(async () => {
+    const query = searchText.trim();
+    if (!query || !mapInstanceRef.current) return;
+    setSearching(true);
+    setSearchError(null);
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`,
+        { headers: { 'Accept-Language': 'en', 'User-Agent': 'SecureLand/1.0' } }
+      );
+      const data = await res.json();
+      if (!data || data.length === 0) { setSearchError("Location not found. Try a more specific name."); setSearching(false); return; }
+      const lat = parseFloat(data[0].lat);
+      const lng = parseFloat(data[0].lon);
+      const name = data[0].display_name || query;
+      const google = (window as any).google;
+      mapInstanceRef.current.panTo({ lat, lng });
+      mapInstanceRef.current.setZoom(18);
+      searchMarkerRef.current?.setMap(null);
+      const marker = new google.maps.Marker({
+        position: { lat, lng }, map: mapInstanceRef.current, title: name,
+        icon: { path: google.maps.SymbolPath.BACKWARD_CLOSED_ARROW, scale: 8, fillColor: "#8b5cf6", fillOpacity: 1, strokeColor: "#fff", strokeWeight: 3 },
+        animation: google.maps.Animation.DROP,
+      });
+      new google.maps.InfoWindow({
+        content: `<div style="padding:8px"><b style="color:#1a1a2e">${name.split(",").slice(0, 2).join(",")}</b><br><small style="color:#888;font-family:monospace">${lat.toFixed(6)}, ${lng.toFixed(6)}</small></div>`,
+      }).open(mapInstanceRef.current, marker);
+      searchMarkerRef.current = marker;
+      setSelectedPlace(name.split(",").slice(0, 3).join(","));
+      setSearchText(name.split(",").slice(0, 2).join(","));
+    } catch { setSearchError("Search failed. Check your connection."); }
+    setSearching(false);
+  }, [searchText]);
+
+  const goToMyLocation = useCallback(() => {
+    if (!navigator.geolocation || !mapInstanceRef.current) return;
+    navigator.geolocation.getCurrentPosition((pos) => {
+      mapInstanceRef.current.panTo({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+      mapInstanceRef.current.setZoom(18);
+      setSearchText("My Location"); setSelectedPlace("Your Current Location");
+    });
+  }, []);
 
   // Pre-fill from logged in user
   useEffect(() => {
@@ -270,6 +301,38 @@ const RegisterLandPage = () => {
       localStorage.setItem("secureland_latest_twin", JSON.stringify(twin));
 
       toast({ title: "⛓️ Land Registered on Blockchain!", description: `Land ID: ${landId} — Hash: ${twin.blockchainHash?.slice(0, 16)}...` });
+
+      // 4. Send WhatsApp notification to the registered owner
+      try {
+        const whatsappMsg = [
+          `✅ *SecureLand — Land Registered Successfully!*`,
+          ``,
+          `📋 *Registration Details:*`,
+          `   🆔 Land ID: ${landId}`,
+          `   👤 Owner: ${ownerName}`,
+          `   📍 Location: ${location}, ${state}`,
+          `   📐 Area: ${calculatedArea > 0 ? `${calculatedArea.toLocaleString()} sq.m (${(calculatedArea / 4046.86).toFixed(2)} acres)` : 'N/A'}`,
+          `   📌 Boundary Points: ${points.length}`,
+          `   🕐 Registered: ${new Date().toLocaleString('en-IN')}`,
+          ``,
+          twin.blockchainHash ? `⛓️ *Blockchain Verified*` : '',
+          twin.blockchainHash ? `   Hash: ${twin.blockchainHash.slice(0, 24)}...` : '',
+          ``,
+          `🛡️ Your land is now protected by SecureLand.`,
+          `   Visit your dashboard to monitor satellite status.`,
+          ``,
+          `— SecureLand Protection System`,
+        ].filter(Boolean).join('\n');
+
+        await fetch('http://localhost:8000/api/whatsapp/send/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone: mobile, message: whatsappMsg }),
+        });
+        console.log('WhatsApp notification sent to', mobile);
+      } catch (waErr) {
+        console.warn('WhatsApp notification failed (non-critical):', waErr);
+      }
 
       // Instead of navigating, show security flow
       setSavedTwin(twin);
@@ -595,30 +658,62 @@ const RegisterLandPage = () => {
 
             {/* RIGHT — Google Maps */}
             <div className="glass-card rounded-[24px] overflow-hidden">
-              <div className="px-5 py-3 border-b border-border flex items-center justify-between">
-                <div className="flex items-center gap-2">
+              {/* Card header — title, pts counter, clear button */}
+              <div className="px-5 py-3 border-b border-border flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2 shrink-0">
                   <Scan className="w-4 h-4 text-primary" />
-                  <span className="text-sm font-semibold text-foreground">Mark Land Boundaries (Google Maps)</span>
+                  <span className="text-sm font-semibold text-foreground">Mark Land Boundaries</span>
                 </div>
-                <div className="flex items-center gap-3">
+                {/* Search bar in header */}
+                <div className="flex items-center gap-1 flex-1 min-w-0 max-w-xs">
+                  <div className="flex items-center gap-0 rounded-lg overflow-hidden border border-border bg-secondary flex-1 min-w-0">
+                    <Search className="w-3.5 h-3.5 text-muted-foreground ml-2.5 shrink-0" />
+                    <input
+                      type="text"
+                      placeholder="Search location..."
+                      value={searchText}
+                      onChange={(e) => setSearchText(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); performSearch(); } }}
+                      className="flex-1 h-8 px-2 bg-transparent text-xs text-foreground placeholder:text-muted-foreground focus:outline-none min-w-0"
+                    />
+                    {searchText && (
+                      <button onClick={() => { setSearchText(""); setSelectedPlace(null); setSearchError(null); }} className="p-1 shrink-0">
+                        <X className="w-3 h-3 text-muted-foreground" />
+                      </button>
+                    )}
+                  </div>
+                  <button onClick={performSearch} disabled={!searchText.trim() || searching}
+                    className="h-8 px-3 rounded-lg bg-primary text-primary-foreground text-xs font-semibold flex items-center gap-1 disabled:opacity-50 shrink-0 hover:opacity-90 transition-opacity">
+                    {searching ? <Loader2 className="w-3 h-3 animate-spin" /> : <Search className="w-3 h-3" />}
+                    <span>Go</span>
+                  </button>
+                  <button onClick={goToMyLocation} className="h-8 w-8 rounded-lg border border-border bg-secondary flex items-center justify-center hover:bg-secondary/80 shrink-0" title="My location">
+                    <Navigation className="w-3.5 h-3.5 text-primary" />
+                  </button>
+                </div>
+                <div className="flex items-center gap-3 shrink-0">
                   <span className="text-[10px] text-muted-foreground font-mono">{points.length} pts</span>
                   <button onClick={() => setPoints([])} className="text-xs text-muted-foreground hover:text-destructive transition-colors font-medium flex items-center gap-1">
                     <Trash2 className="w-3 h-3" /> Clear
                   </button>
                 </div>
               </div>
+              {/* Inline search error */}
+              {searchError && (
+                <div className="px-4 py-2 bg-destructive/10 border-b border-destructive/20 flex items-center gap-2">
+                  <span className="text-xs text-destructive">{searchError}</span>
+                  <button onClick={() => setSearchError(null)} className="ml-auto"><X className="w-3 h-3 text-destructive" /></button>
+                </div>
+              )}
+              {selectedPlace && !searchError && (
+                <div className="px-4 py-1.5 bg-primary/5 border-b border-border flex items-center gap-2">
+                  <MapPin className="w-3 h-3 text-primary shrink-0" />
+                  <span className="text-xs text-muted-foreground truncate">{selectedPlace}</span>
+                </div>
+              )}
               <div className="relative h-[530px] overflow-hidden">
-                <BoundaryMap points={points} onPointsChange={handlePointsChange} mapCenter={mapCenter} />
-
-                {points.length === 0 && (
-                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
-                    <div className="text-center bg-card/80 backdrop-blur-sm rounded-xl px-6 py-4 border border-border shadow-lg">
-                      <MapPin className="w-8 h-8 text-primary mx-auto mb-2" />
-                      <p className="text-sm text-foreground font-medium">Click on satellite map to mark boundary</p>
-                      <p className="text-xs text-muted-foreground mt-1">Mark at least 3 corner points • Drag to edit</p>
-                    </div>
-                  </div>
-                )}
+                <BoundaryMap points={points} onPointsChange={handlePointsChange}
+                  onMapReady={(map) => { mapInstanceRef.current = map; }} />
               </div>
             </div>
           </div>
