@@ -8,7 +8,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import Cesium3DViewer from "@/components/Cesium3DViewer";
 
-const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "AIzaSyADeLSm5n2zxbGooVoS6zggXITfSjbBsfo";
+const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "AIzaSyCahGYtVhGgDlZfZr1M7IVkXHmi4tpou4s";
 
 // =============================================
 // DIGITAL TWIN MAP VIEWER

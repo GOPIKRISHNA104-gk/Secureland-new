@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import { Satellite, Focus, Map, Activity, Layers, ZoomIn, ZoomOut, Locate, User, MapPin, Ruler, Shield } from "lucide-react";
 import AlertCard from "@/components/AlertCard";
 
-const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "AIzaSyADeLSm5n2zxbGooVoS6zggXITfSjbBsfo";
+const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "AIzaSyCahGYtVhGgDlZfZr1M7IVkXHmi4tpou4s";
 
 interface MonitoredPlot {
   id: string;
@@ -373,17 +373,17 @@ const SatelliteMonitoringPage = () => {
                   key={plot.id}
                   onClick={() => panToPlot(plot.center)}
                   className={`p-3 rounded-xl border cursor-pointer transition-all hover:shadow-md ${plot.isRegistered
-                      ? "bg-cyan-500/5 border-cyan-500/20 hover:bg-cyan-500/10 ring-1 ring-cyan-500/20"
-                      : plot.status === "alert"
-                        ? "bg-destructive/5 border-destructive/20 hover:bg-destructive/10"
-                        : "bg-primary/5 border-primary/20 hover:bg-primary/10"
+                    ? "bg-cyan-500/5 border-cyan-500/20 hover:bg-cyan-500/10 ring-1 ring-cyan-500/20"
+                    : plot.status === "alert"
+                      ? "bg-destructive/5 border-destructive/20 hover:bg-destructive/10"
+                      : "bg-primary/5 border-primary/20 hover:bg-primary/10"
                     }`}
                 >
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-sm font-bold text-foreground">{plot.name}</span>
                     <span className={`text-xs font-semibold px-2 py-0.5 rounded-md ${plot.isRegistered
-                        ? "bg-cyan-500/10 text-cyan-500"
-                        : plot.status === "alert" ? "bg-destructive/10 text-destructive" : "bg-accent/10 text-accent"
+                      ? "bg-cyan-500/10 text-cyan-500"
+                      : plot.status === "alert" ? "bg-destructive/10 text-destructive" : "bg-accent/10 text-accent"
                       }`}>
                       {plot.isRegistered ? "Your Land" : plot.status === "alert" ? "Alert" : "Secured"}
                     </span>

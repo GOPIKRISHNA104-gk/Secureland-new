@@ -193,7 +193,7 @@ const SatelliteMapPreview = ({ lat, lng, label, polygon }: { lat: number; lng: n
         } else if (!document.getElementById("google-maps-script")) {
             const script = document.createElement("script");
             script.id = "google-maps-script";
-            script.src = `https://maps.googleapis.com/maps/api/js?key=${import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "AIzaSyADeLSm5n2zxbGooVoS6zggXITfSjbBsfo"}&loading=async`;
+            script.src = `https://maps.googleapis.com/maps/api/js?key=${import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "AIzaSyCahGYtVhGgDlZfZr1M7IVkXHmi4tpou4s"}&loading=async`;
             script.async = true;
             script.onload = () => setTimeout(initMap, 200);
             document.head.appendChild(script);

@@ -4,14 +4,14 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Camera, FileText, Upload, MapPin, User, Phone, Ruler, ArrowRight,
   Scan, CheckCircle, Plus, Globe, Image, Trash2, Loader2, Square,
-  Search, X, Navigation
+  Search, X, Navigation, Lock, Eye, EyeOff, Shield
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { db } from "@/lib/firebase";
 import { doc, setDoc, collection } from "firebase/firestore";
 import { registerOnBlockchain } from "@/lib/blockchain";
 
-const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "AIzaSyADeLSm5n2zxbGooVoS6zggXITfSjbBsfo";
+const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "AIzaSyCahGYtVhGgDlZfZr1M7IVkXHmi4tpou4s";
 
 // =============================================
 // GOOGLE MAPS BOUNDARY DRAWING COMPONENT
@@ -112,14 +112,6 @@ const BoundaryMap = ({ points, onPointsChange, onMapReady }: {
       mapInstanceRef.current.fitBounds(bounds, 100);
     }
   }, [points]); // eslint-disable-line
-
-  // Pan to new center when location changes
-  useEffect(() => {
-    const map = mapInstanceRef.current;
-    if (!map || !mapCenter) return;
-    map.panTo({ lat: mapCenter.lat, lng: mapCenter.lng });
-    if (mapCenter.zoom) map.setZoom(mapCenter.zoom);
-  }, [mapCenter]);
 
   return <div ref={mapRef} className="w-full h-full" />;
 };
@@ -309,6 +301,38 @@ const RegisterLandPage = () => {
       localStorage.setItem("secureland_latest_twin", JSON.stringify(twin));
 
       toast({ title: "⛓️ Land Registered on Blockchain!", description: `Land ID: ${landId} — Hash: ${twin.blockchainHash?.slice(0, 16)}...` });
+
+      // 4. Send WhatsApp notification to the registered owner
+      try {
+        const whatsappMsg = [
+          `✅ *SecureLand — Land Registered Successfully!*`,
+          ``,
+          `📋 *Registration Details:*`,
+          `   🆔 Land ID: ${landId}`,
+          `   👤 Owner: ${ownerName}`,
+          `   📍 Location: ${location}, ${state}`,
+          `   📐 Area: ${calculatedArea > 0 ? `${calculatedArea.toLocaleString()} sq.m (${(calculatedArea / 4046.86).toFixed(2)} acres)` : 'N/A'}`,
+          `   📌 Boundary Points: ${points.length}`,
+          `   🕐 Registered: ${new Date().toLocaleString('en-IN')}`,
+          ``,
+          twin.blockchainHash ? `⛓️ *Blockchain Verified*` : '',
+          twin.blockchainHash ? `   Hash: ${twin.blockchainHash.slice(0, 24)}...` : '',
+          ``,
+          `🛡️ Your land is now protected by SecureLand.`,
+          `   Visit your dashboard to monitor satellite status.`,
+          ``,
+          `— SecureLand Protection System`,
+        ].filter(Boolean).join('\n');
+
+        await fetch('http://localhost:8000/api/whatsapp/send/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone: mobile, message: whatsappMsg }),
+        });
+        console.log('WhatsApp notification sent to', mobile);
+      } catch (waErr) {
+        console.warn('WhatsApp notification failed (non-critical):', waErr);
+      }
 
       // Instead of navigating, show security flow
       setSavedTwin(twin);
