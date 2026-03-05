@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { motion } from "framer-motion";
-import { Satellite, Focus, Map, Activity, Layers, ZoomIn, ZoomOut, Locate, User, MapPin, Ruler, Shield } from "lucide-react";
+import { Satellite, Focus, Map, Activity, Layers, ZoomIn, ZoomOut, Locate, User, MapPin, Ruler, Shield, Search, X, CheckCircle } from "lucide-react";
 import AlertCard from "@/components/AlertCard";
 
 const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "AIzaSyADeLSm5n2zxbGooVoS6zggXITfSjbBsfo";
@@ -263,6 +263,94 @@ const SatelliteMonitoringPage = () => {
     }
   };
 
+  // =============================================
+  // SEARCH AREA — Google Geocoder
+  // =============================================
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<{ name: string; lat: number; lng: number }[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchMatched, setSearchMatched] = useState(false);
+  const [searchMarker, setSearchMarker] = useState<any>(null);
+  const searchTimerRef = useRef<any>(null);
+
+  const handleSearchArea = (query: string) => {
+    setSearchQuery(query);
+    setSearchMatched(false);
+    setSearchResults([]);
+
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    if (query.trim().length < 3) return;
+
+    setSearchLoading(true);
+    searchTimerRef.current = setTimeout(() => {
+      const google = (window as any).google;
+      if (!google?.maps) { setSearchLoading(false); return; }
+
+      const geocoder = new google.maps.Geocoder();
+      geocoder.geocode({ address: `${query}, India` }, (results: any, status: string) => {
+        setSearchLoading(false);
+        if (status === "OK" && results?.length > 0) {
+          const mapped = results.slice(0, 5).map((r: any) => ({
+            name: r.formatted_address,
+            lat: r.geometry.location.lat(),
+            lng: r.geometry.location.lng(),
+          }));
+          setSearchResults(mapped);
+        }
+      });
+    }, 500);
+  };
+
+  const selectSearchResult = (result: { name: string; lat: number; lng: number }) => {
+    const map = googleMapRef.current;
+    if (!map) return;
+
+    // Remove previous search marker
+    if (searchMarker) searchMarker.setMap(null);
+
+    map.panTo({ lat: result.lat, lng: result.lng });
+    map.setZoom(17);
+
+    const google = (window as any).google;
+    if (google?.maps) {
+      const marker = new google.maps.Marker({
+        position: { lat: result.lat, lng: result.lng },
+        map,
+        icon: {
+          path: google.maps.SymbolPath.CIRCLE,
+          scale: 14,
+          fillColor: "#F59E0B",
+          fillOpacity: 1,
+          strokeColor: "#FFFFFF",
+          strokeWeight: 3,
+        },
+        title: result.name,
+        animation: google.maps.Animation.DROP,
+      });
+
+      const info = new google.maps.InfoWindow({
+        content: `<div style="font-family:'Inter',sans-serif;padding:6px;min-width:180px">
+          <div style="font-size:13px;font-weight:700;color:#1e293b;margin-bottom:4px">📍 Search Result</div>
+          <div style="font-size:11px;color:#64748b;line-height:1.6">${result.name}</div>
+          <div style="font-size:11px;color:#64748b;margin-top:4px">${result.lat.toFixed(6)}, ${result.lng.toFixed(6)}</div>
+        </div>`,
+      });
+      info.open(map, marker);
+      setSearchMarker(marker);
+    }
+
+    setSearchQuery(result.name.split(",")[0]);
+    setSearchResults([]);
+    setSearchMatched(true);
+  };
+
+  const clearSearch = () => {
+    setSearchQuery("");
+    setSearchResults([]);
+    setSearchMatched(false);
+    if (searchMarker) { searchMarker.setMap(null); setSearchMarker(null); }
+  };
+
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="h-[calc(100vh-8rem)] flex flex-col space-y-4 max-w-[1400px] mx-auto">
       {/* Header */}
@@ -306,6 +394,53 @@ const SatelliteMonitoringPage = () => {
                 <span className="hidden md:inline">{t.label}</span>
               </button>
             ))}
+          </div>
+
+          {/* Search Area Bar */}
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[15] w-full max-w-md px-4" style={{ left: '55%' }}>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <Search className="w-4 h-4 text-muted-foreground" />
+              </div>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => handleSearchArea(e.target.value)}
+                placeholder="Search area, city, or coordinates..."
+                className={`w-full h-10 pl-10 pr-10 rounded-xl bg-background/90 backdrop-blur-xl border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 shadow-2xl transition-all ${searchMatched ? "border-emerald-500 ring-2 ring-emerald-500/20" : "border-border/50"
+                  }`}
+              />
+              <div className="absolute inset-y-0 right-0 pr-2 flex items-center gap-1">
+                {searchLoading && (
+                  <div className="w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+                )}
+                {searchMatched && <CheckCircle className="w-4 h-4 text-emerald-500" />}
+                {searchQuery && (
+                  <button onClick={clearSearch} className="p-1 hover:bg-secondary rounded-md transition-colors">
+                    <X className="w-3.5 h-3.5 text-muted-foreground" />
+                  </button>
+                )}
+              </div>
+
+              {/* Search Results Dropdown */}
+              {searchResults.length > 0 && (
+                <div className="absolute top-full left-0 right-0 mt-1 bg-background/95 backdrop-blur-xl rounded-xl border border-border/50 shadow-2xl overflow-hidden z-[20]">
+                  {searchResults.map((result, i) => (
+                    <button
+                      key={i}
+                      onClick={() => selectSearchResult(result)}
+                      className="w-full text-left px-4 py-3 hover:bg-primary/10 transition-colors border-b border-border/20 last:border-0 flex items-start gap-3"
+                    >
+                      <MapPin className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+                      <div className="min-w-0">
+                        <p className="text-sm text-foreground font-medium truncate">{result.name}</p>
+                        <p className="text-[10px] text-muted-foreground font-mono">{result.lat.toFixed(5)}, {result.lng.toFixed(5)}</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Zoom controls */}
@@ -373,17 +508,17 @@ const SatelliteMonitoringPage = () => {
                   key={plot.id}
                   onClick={() => panToPlot(plot.center)}
                   className={`p-3 rounded-xl border cursor-pointer transition-all hover:shadow-md ${plot.isRegistered
-                      ? "bg-cyan-500/5 border-cyan-500/20 hover:bg-cyan-500/10 ring-1 ring-cyan-500/20"
-                      : plot.status === "alert"
-                        ? "bg-destructive/5 border-destructive/20 hover:bg-destructive/10"
-                        : "bg-primary/5 border-primary/20 hover:bg-primary/10"
+                    ? "bg-cyan-500/5 border-cyan-500/20 hover:bg-cyan-500/10 ring-1 ring-cyan-500/20"
+                    : plot.status === "alert"
+                      ? "bg-destructive/5 border-destructive/20 hover:bg-destructive/10"
+                      : "bg-primary/5 border-primary/20 hover:bg-primary/10"
                     }`}
                 >
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-sm font-bold text-foreground">{plot.name}</span>
                     <span className={`text-xs font-semibold px-2 py-0.5 rounded-md ${plot.isRegistered
-                        ? "bg-cyan-500/10 text-cyan-500"
-                        : plot.status === "alert" ? "bg-destructive/10 text-destructive" : "bg-accent/10 text-accent"
+                      ? "bg-cyan-500/10 text-cyan-500"
+                      : plot.status === "alert" ? "bg-destructive/10 text-destructive" : "bg-accent/10 text-accent"
                       }`}>
                       {plot.isRegistered ? "Your Land" : plot.status === "alert" ? "Alert" : "Secured"}
                     </span>
