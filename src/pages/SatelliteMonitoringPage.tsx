@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import { Satellite, Focus, Map, Activity, Layers, ZoomIn, ZoomOut, Locate, User, MapPin, Ruler, Shield, Search, X, CheckCircle } from "lucide-react";
 import AlertCard from "@/components/AlertCard";
 
-const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "AIzaSyADeLSm5n2zxbGooVoS6zggXITfSjbBsfo";
+const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "AIzaSyCahGYtVhGgDlZfZr1M7IVkXHmi4tpou4s";
 
 interface MonitoredPlot {
   id: string;

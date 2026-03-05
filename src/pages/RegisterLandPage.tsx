@@ -11,7 +11,7 @@ import { db } from "@/lib/firebase";
 import { doc, setDoc, collection } from "firebase/firestore";
 import { registerOnBlockchain } from "@/lib/blockchain";
 
-const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "AIzaSyADeLSm5n2zxbGooVoS6zggXITfSjbBsfo";
+const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "AIzaSyCahGYtVhGgDlZfZr1M7IVkXHmi4tpou4s";
 
 // =============================================
 // GOOGLE MAPS BOUNDARY DRAWING COMPONENT
